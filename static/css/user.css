@@ -1,0 +1,50 @@
+.user-profile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-name {
+    display: flex;
+}
+
+.user-photo img {
+    width: 100%;
+    height: 100%;
+}
+
+.user-carma,
+.user-actions,
+.user-carma-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-carma>div,
+.user-actions>div,
+.user-carma-actions>div {
+    margin: .5rem;
+    cursor: pointer;
+}
+
+.start-chat {
+    padding: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #794da5;
+    background: #ffffff4a;
+    border: 1px solid #243358;
+    border-radius: 5px;
+    box-shadow: 2px 5px 11px 0 #7417a48c;
+    transition: .5s;
+}
+
+.start-chat:hover {
+    color: #fff5e0;
+    background: #794ca4;
+    transition: .5s;
+}

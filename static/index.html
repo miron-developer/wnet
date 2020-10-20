@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/img/app/logo.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/preloader.css">
+    <title>AniFor</title>
+</head>
+
+<body>
+    <div class="mobile-menu">
+        <div class="menu-btn"> <span class="menu-btn-span"></span> </div>
+        <div class="mobile-menu-logo"> AniFor </div>
+    </div>
+
+    <header class="header">
+        <section class="header-logo"> <img src="/static/img/app/logo.jpg" alt="anifor"> </section>
+
+        <section class="header-navs">
+            <div class="navs-main"> Главная </div>
+            <div class="navs-posts"> Посты </div>
+            <div class="navs-contacts"> Контакты </div>
+            <div class="navs-advanced-search"> Расширенный поиск </div>
+            <div class="navs-account">
+                <span>Личный кабинет</span>
+                <div class="navs-account-actions">
+                    <div class="account-actions noaction">Вы не вошли в систему!</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="header-search">
+            <i class="fa fa-search" aria-hidden="true"></i>
+            <input type="text" name="search-data" id="" placeholder="search...">
+        </section>
+
+        <section class="header-sign">
+            <div class="sign-username"></div>
+            <div class="sign-action">
+                <div class="sign-icon sign-in"> <i class="fa fa-sign-in" aria-hidden="true"></i> </div>
+                <div class="sign-btn sign-in"> Войти </div>
+            </div>
+        </section>
+    </header>
+
+    <main class="main">
+        <aside class="chat-users">
+            <h2 class="chat-users-h2">Пользователи</h2>
+
+            <!-- users here -->
+            <div class="chat-users-users"></div>
+        </aside>
+
+        <section class="content">
+            <div class="content-header"></div>
+            <div class="content-body"></div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-all-right">Все права защищены и получены, все ок</div>
+
+        <div class="footer-authors">
+            <a href="https://github.com/miron-developer" target="_blank" rel="noopener noreferrer">Miron-developer</a>,
+            <a href="https://github.com/mirask" target="_blank" rel="noopener noreferrer">MirasK</a>
+        </div>
+
+        <div class="footer-years">2020-2020</div>
+    </footer>
+
+    <!-- <video src="" autoplay></video> -->
+
+    <script defer src="https://use.fontawesome.com/e7bce2d22e.js"></script>
+    <script defer type="module" src="/static/js/script.js"></script>
+    <script>
+        // const vdiv = document.querySelector('video');
+
+        // navigator.mediaDevices.getUserMedia({
+        //     audio: true,
+        //     video: true
+        // }).then(stream => vdiv.srcObject = stream);
+    </script>
+</body>
+
+</html>
