@@ -1,8 +1,8 @@
 ###################################################################################################
 #                                                                                                 #
 #                                   Miron-developer & MirasK                                      #
-#                                 AniFor - the real-time-forum                                    #
-#                                                                                                 #
+#                                   WNET - the social-network                                     #
+#                                           (server)                                              #
 ###################################################################################################
 
 FROM golang:1.13
@@ -11,12 +11,12 @@ COPY . .
 WORKDIR /app
 RUN go mod download; go build
 
-LABEL description="This is the real-time-forum project." \
+LABEL description="This is the social-network project." \
     authors="Miron-developer, MirasK" \
-    contacts="https://github.com/miron-developer, https://github.com/mirasK" \
-    site="https://anifor.herokuapp.com"
+    contacts="https://github.com/miron-developer, https://github.com/mirasK, wnet.soc.net@gmail.com" \
+    site="https://wnet.netlify.app"
 
-CMD ["./anifor"]
+CMD ["./wnet"]
 
 EXPOSE 8080
 EXPOSE 4430

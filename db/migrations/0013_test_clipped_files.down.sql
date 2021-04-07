@@ -1,0 +1,1 @@
+DELETE FROM Files WHERE id < 5;

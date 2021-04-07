@@ -1,10 +1,10 @@
 package main
 
 import (
-	"anifor/app"
-	"os"
-
 	"crypto/tls"
+	"os"
+	"wnet/app"
+
 	"fmt"
 	"net/http"
 	"time"
@@ -12,44 +12,46 @@ import (
 
 func routes(app *app.Application) http.Handler {
 	appMux := http.NewServeMux()
-	appMux.HandleFunc("/", app.Hindex)
 
 	// api routes
 	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("/news", app.HNews)
+	apiMux.HandleFunc("/notifications", app.HNotifications)
+	apiMux.HandleFunc("/notification", app.HNotification)
+	apiMux.HandleFunc("/post", app.HPost)
+	apiMux.HandleFunc("/event", app.HEvent)
 	apiMux.HandleFunc("/posts", app.Hposts)
-	apiMux.HandleFunc("/post/", app.Hpost)
 	apiMux.HandleFunc("/comments", app.Hcomments)
 	apiMux.HandleFunc("/users", app.Husers)
 	apiMux.HandleFunc("/messages", app.Hmessages)
 	apiMux.HandleFunc("/online", app.HonlineUsers)
-	apiMux.HandleFunc("/user/", app.Huser)
-	apiMux.HandleFunc("/", app.Hindex)
+	apiMux.HandleFunc("/user", app.HUser)
 	appMux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 	// ws
 	wsMux := http.NewServeMux()
 	wsMux.HandleFunc("/", app.CreateWSUser)
-	wsMux.HandleFunc("/change-name", app.ChangeName)
 	appMux.Handle("/ws/", http.StripPrefix("/ws", wsMux))
 
 	// sign
 	signMux := http.NewServeMux()
+	signMux.HandleFunc("/up", app.HSignUp)
 	signMux.HandleFunc("/s/", app.HSaveUser)
 	signMux.HandleFunc("/in", app.HSignIn)
-	signMux.HandleFunc("/up", app.HSignUp)
-	signMux.HandleFunc("/r/", app.HSavePassword)
-	signMux.HandleFunc("/restore", app.HRestore)
-	signMux.HandleFunc("/logout", app.HLogout)
-	signMux.HandleFunc("/status", app.HcheckUserLogged)
-	signMux.HandleFunc("/", app.Hindex)
+	signMux.HandleFunc("/status", app.HCheckUserLogged)
+	signMux.HandleFunc("/re", app.HResetPassword)
+	signMux.HandleFunc("/rst/", app.HSaveNewPassword)
+	signMux.HandleFunc("/out", app.HLogout)
+	signMux.HandleFunc("/oauth/up", app.HSignUp)
+	signMux.HandleFunc("/oauth/in", app.HSignIn)
 	appMux.Handle("/sign/", http.StripPrefix("/sign", signMux))
 
-	// profile
-	profileMux := http.NewServeMux()
-	profileMux.HandleFunc("/change-avatar", app.HChangeAvatar)
-	profileMux.HandleFunc("/change-profile", app.HChangeData)
-	profileMux.HandleFunc("/", app.Hindex)
-	appMux.Handle("/profile/", http.StripPrefix("/profile", profileMux))
+	// // profile
+	// profileMux := http.NewServeMux()
+	// profileMux.HandleFunc("/change-avatar", app.HChangeAvatar)
+	// profileMux.HandleFunc("/change-profile", app.HChangeData)
+	// profileMux.HandleFunc("/", app.Hindex)
+	// appMux.Handle("/profile/", http.StripPrefix("/profile", profileMux))
 
 	// save
 	saveMux := http.NewServeMux()
@@ -58,13 +60,9 @@ func routes(app *app.Application) http.Handler {
 	saveMux.HandleFunc("/post", app.HSavePost)
 	saveMux.HandleFunc("/message", app.HSaveMessage)
 	saveMux.HandleFunc("/comment", app.HSaveComment)
-	saveMux.HandleFunc("/ld", app.HSaveLikeDislike)
-	saveMux.HandleFunc("/", app.Hindex)
-	appMux.Handle("/save/", http.StripPrefix("/save", saveMux))
-
-	// static files define
-	static := http.FileServer(http.Dir("static"))
-	appMux.Handle("/static/", http.StripPrefix("/static/", static))
+	saveMux.HandleFunc("/like", app.HSaveLikeDislike)
+	saveMux.HandleFunc("/answer", app.HSaveEventAnswer)
+	appMux.Handle("/s/", http.StripPrefix("/s", saveMux))
 
 	// middlewares
 	muxHanlder := app.AccessLogMiddleware(appMux)
@@ -77,7 +75,7 @@ func main() {
 	app := app.InitProg()
 
 	if port != "" {
-		app.HTTPSport = port
+		app.Port = port
 	}
 
 	app.ILog.Println("initialization completed!")
@@ -89,7 +87,7 @@ func main() {
 
 	// server
 	srv := http.Server{
-		Addr:         ":" + app.HTTPSport,
+		Addr:         ":" + app.Port,
 		ErrorLog:     app.ELog,
 		Handler:      routes(app),
 		ReadTimeout:  5 * time.Second,
@@ -103,15 +101,15 @@ func main() {
 		},
 	}
 
-	fmt.Printf("server listening on ports %v(HTTPS) and %v(HTTP)\n", app.HTTPSport, app.HTTPport)
-	app.ILog.Printf("server listening on ports %v(HTTPS) and %v(HTTP)", app.HTTPSport, app.HTTPport)
+	fmt.Printf("server listening on ports %v(HTTPS) and %v(HTTP)\n", app.Port, "8080")
+	app.ILog.Printf("server listening on ports %v(HTTPS) and %v(HTTP)", app.Port, "8080")
 
 	// localhost side
-	// go func() {
-	// 	app.ELog.Println(http.ListenAndServe(":"+app.HTTPport, http.HandlerFunc(app.HTTPRedirect)))
-	// }()
-	// app.ELog.Fatal(srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"))
+	go func() {
+		app.ELog.Println(http.ListenAndServe(":8080", http.HandlerFunc(nil)))
+	}()
+	app.ELog.Fatal(srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"))
 
 	// heroku side
-	app.ELog.Fatal(srv.ListenAndServe())
+	// app.ELog.Fatal(srv.ListenAndServe())
 }

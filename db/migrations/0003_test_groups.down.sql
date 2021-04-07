@@ -1,0 +1,1 @@
+DELETE FROM Groups WHERE title IN("group1", "group2", "group3", "group4");

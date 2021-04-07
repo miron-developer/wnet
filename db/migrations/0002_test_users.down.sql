@@ -1,0 +1,1 @@
+DELETE FROM Users WHERE nName IN("nickname1", "nickname2", "nickname3", "nickname4");

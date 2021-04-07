@@ -1,14 +1,13 @@
 package app
 
 import (
-	"anifor/app/dbfuncs"
 	"errors"
 	"net/http"
 	"net/smtp"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
+	"wnet/app/dbfuncs"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -16,16 +15,20 @@ import (
 // checkEmailAndNick check if email is empty or not
 //	exist = true - user exist in db
 func checkEmailAndNick(exist bool, email, nickname string) error {
-	results, _ := dbfuncs.GetFrom("Users", "email, nickname", dbfuncs.DoSQLOption("email=? OR nickname=?", "", "", email, nickname), nil)
+	results, _ := dbfuncs.GetFrom(dbfuncs.SQLSelectParams{
+		What:    "email, nName",
+		Table:   "Users",
+		Options: dbfuncs.DoSQLOption("email=? OR nName=?", "", "", email, nickname),
+	})
 
 	if !exist && len(results) > 0 {
 		if results[0][0].(string) == email {
-			return errors.New("this email is not empty")
+			return errors.New("This email is not empty")
 		}
-		return errors.New("this nickname is not empty")
+		return errors.New("This nickname is not empty")
 	}
 	if exist && len(results) == 0 {
-		return errors.New("wrong login")
+		return errors.New("Wrong login")
 	}
 	return nil
 }
@@ -47,9 +50,13 @@ func checkPassword(exist bool, pass, login string) error {
 			return errors.New("password must have at least 8 character")
 		}
 	} else {
-		dbPass, e := dbfuncs.GetOneFrom("Users", "password", dbfuncs.DoSQLOption("email = ? OR nickname = ?", "", "", login, login), nil)
+		dbPass, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+			What:    "password",
+			Table:   "Users",
+			Options: dbfuncs.DoSQLOption("email = ? OR nName = ?", "", "", login, login),
+		})
 		if e != nil {
-			return errors.New("wrong login")
+			return errors.New("Wrong login")
 		}
 		return bcrypt.CompareHashAndPassword([]byte(dbPass[0].(string)), []byte(pass))
 	}
@@ -57,10 +64,10 @@ func checkPassword(exist bool, pass, login string) error {
 }
 
 // finish signUp proccess
-func (app *Application) saveUser(w http.ResponseWriter, r *http.Request) (int, error) {
+func (app *Application) SaveUser(w http.ResponseWriter, r *http.Request) (int, error) {
 	user, ok := app.UsersCode[r.PostFormValue("code")]
 	if !ok {
-		return -1, errors.New("wrong code")
+		return -1, errors.New("Wrong code")
 	}
 
 	ID, e := dbfuncs.CreateUser(user)
@@ -70,161 +77,198 @@ func (app *Application) saveUser(w http.ResponseWriter, r *http.Request) (int, e
 	return ID, SessionStart(w, r, user.Email, ID)
 }
 
-// signUp check validate, start session, send data to db and etc
-func (app *Application) signUp(w http.ResponseWriter, r *http.Request) error {
+func calculateAgeFromDOB(dob string) (int, error) {
+	if dob == "" {
+		return 0, errors.New("Do not have date of birth!")
+	}
+
+	date, e := time.Parse("2006-01-02", dob)
+	if e != nil {
+		return 0, errors.New("Invalid date!")
+	}
+
+	diff := time.Now().Unix() - date.Unix()
+	age := int(diff) / 86400 / 365
+	if age < 13 {
+		return 0, errors.New("Firstly growth to 13 yearl old!")
+	}
+	return age, nil
+}
+
+// SignUp check validate, start session + oauth2
+func (app *Application) SignUp(w http.ResponseWriter, r *http.Request) (map[string]interface{}, error) {
+	isOauth2Path := strings.Contains(r.URL.Path, "oauth")
 	email := strings.ToLower(r.PostFormValue("email"))
 	pass := r.PostFormValue("password")
-	nickname := r.PostFormValue("nickname")
+	lname := r.PostFormValue("lastName")
+	fname := r.PostFormValue("firstName")
+	dob := r.PostFormValue("dob")
+	if isOauth2Path {
+		pass = StringWithCharset(8) + "1aA"
+		lname = "wnet"
+		fname = "user"
+		dob = "1999-09-09"
+	}
+	nickname := lname + "_" + fname + StringWithCharset(8)
 
-	if pass != r.PostFormValue("repeatPassword") {
-		return errors.New("password mismatch")
+	if e := checkEmailAndNick(false, email, nickname); e != nil {
+		return nil, e
 	}
-	e := checkEmailAndNick(false, email, nickname)
-	if e != nil {
-		return e
+	if e := checkPassword(false, pass, ""); e != nil {
+		return nil, e
 	}
-	e = checkPassword(false, pass, "")
+
+	age, e := calculateAgeFromDOB(dob)
 	if e != nil {
-		return e
+		return nil, e
 	}
-	age, e := strconv.Atoi(r.PostFormValue("age"))
+
+	hashPass, e := bcrypt.GenerateFromPassword([]byte(pass), 4)
 	if e != nil {
-		return errors.New("wrong age")
-	}
-	hashPass, e := bcrypt.GenerateFromPassword([]byte(r.PostFormValue("password")), 4)
-	if e != nil {
-		return errors.New("password not correct")
+		return nil, errors.New("Password do not saved!")
 	}
 
 	// XCSS
-	if app.XCSSOther(nickname) != nil ||
-		app.XCSSOther(r.PostFormValue("firstName")) != nil ||
-		app.XCSSOther(r.PostFormValue("lastName")) != nil {
-		return errors.New("wrond data")
+	if app.XCSSOther(lname) != nil || app.XCSSOther(fname) != nil {
+		return nil, errors.New("It's XSS attack!")
 	}
 
-	code := StringWithCharset(8)
-	app.m.Lock()
-	app.UsersCode[code] = &dbfuncs.Users{FirstName: r.PostFormValue("firstName"), LastName: r.PostFormValue("lastName"),
-		Gender: r.PostFormValue("gender"), Age: age, Photo: "static/img/avatar/default.png",
-		Role: "2", LastActivitie: TimeExpire(time.Nanosecond),
-		NickName: nickname, Email: email, Password: string(hashPass)}
-	app.m.Unlock()
-
-	mes := "To: " + email + "\nFrom: " + "ani_for@bk.ru" + "\nSubject: Verification\n\n" +
-		"You will be going to register on AniFor. \nEnter this code on site: " + code +
-		"\nOr visit this: https://" + r.Host + "/sign/s/" + code +
-		"\nBe careful this code retire at the end of the day."
-	e = SendMail(mes, []string{email})
-
-	if e != nil {
-		return errors.New("wrong email")
+	user := &dbfuncs.Users{
+		FirstName: fname, LastName: lname, NickName: nickname,
+		Gender: "Default", Age: age, Avatar: "/img/default-avatar.png", Dob: dob, About: "",
+		Status: "online", IsPrivate: "0", Type: "user",
+		Email: email, Password: string(hashPass),
 	}
-	return nil
+	if !isOauth2Path {
+		code := StringWithCharset(8)
+		app.m.Lock()
+		app.UsersCode[code] = user
+		app.m.Unlock()
+
+		mes := "To: " + email + "\nFrom: " + "wnet.soc.net@gmail.com" + "\nSubject: Verification\n\n" +
+			"You will be going to register on WNET. \nEnter this code on site: " + code +
+			"\nOr visit this: " + r.Header.Get("origin") + "/sign/s/" + code +
+			"\nBe careful this code expire today."
+		return nil, SendMail(mes, []string{email})
+	} else {
+		ID, e := dbfuncs.CreateUser(user)
+		if e != nil {
+			return nil, e
+		}
+		return map[string]interface{}{"id": ID, "password": pass}, SessionStart(w, r, user.Email, ID)
+	}
 }
 
-// signIn check password and login from db and request
-func (app *Application) signIn(w http.ResponseWriter, r *http.Request) (int, error) {
-	login := r.PostFormValue("login")
+// SignIn check password and login from db and request + oauth2
+func (app *Application) SignIn(w http.ResponseWriter, r *http.Request) (int, error) {
+	isOauth2Path := strings.Contains(r.URL.Path, "oauth")
+	email := r.PostFormValue("email")
 	pass := r.PostFormValue("password")
 
-	e := checkEmailAndNick(true, login, login)
-	if e != nil {
+	if e := checkEmailAndNick(true, email, email); e != nil {
 		return -1, e
 	}
-	e = checkPassword(true, pass, login)
-	if e != nil {
-		return -1, errors.New("password is not correct")
+	if !isOauth2Path {
+		if e := checkPassword(true, pass, email); e != nil {
+			return -1, errors.New("Password is not correct!")
+		}
 	}
 
-	res, e := dbfuncs.GetOneFrom("Users", "ID", dbfuncs.DoSQLOption("email = ? OR nickname = ?", "", "", login, login), nil)
+	res, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+		What:    "id",
+		Table:   "Users",
+		Options: dbfuncs.DoSQLOption("email = ? OR nName = ?", "", "", email, email),
+		Joins:   nil,
+	})
 	if e != nil {
-		return -1, errors.New("wrong login")
+		return -1, errors.New("Wrong login")
 	}
 	ID := dbfuncs.FromINT64ToINT(res[0])
 
-	if app.findUserByID(ID) != nil {
-		return -1, errors.New("user already is online")
-	}
-	return ID, SessionStart(w, r, login, ID)
+	// if app.findUserByID(ID) != nil {
+	// 	return -1, errors.New("User already is online!")
+	// }
+	return ID, SessionStart(w, r, email, ID)
 }
 
-func logout(w http.ResponseWriter, r *http.Request) error {
+// Logout user
+func (app *Application) Logout(w http.ResponseWriter, r *http.Request) error {
 	cookie, e := r.Cookie(cookieName)
 	if e != nil || cookie.Value == "" {
 		return e
 	}
 
-	e = dbfuncs.DeleteSession("ID = '" + cookie.Value + "'")
-	if e != nil {
-		return e
+	if e = dbfuncs.DeleteByParams(dbfuncs.SQLDeleteParams{
+		Table:   "Sessions",
+		Options: dbfuncs.DoSQLOption("id = '"+cookie.Value+"'", "", ""),
+	}); e != nil {
+		return errors.New("Not logouted")
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	setCookie(w, "", -1)
 	return nil
 }
 
-func (app *Application) savePassword(w http.ResponseWriter, r *http.Request) error {
-	login, ok := app.RestoreCode[r.PostFormValue("code")]
+// SaveNewPassword restore password
+func (app *Application) SaveNewPassword(w http.ResponseWriter, r *http.Request) error {
+	email, ok := app.RestoreCode[r.PostFormValue("code")]
 	if !ok {
 		return errors.New("wrong code")
 	}
 
 	newPass := r.PostFormValue("password")
-	e := checkPassword(false, newPass, "")
-	if e != nil {
+	if e := checkPassword(false, newPass, ""); e != nil {
 		return e
 	}
 
-	res, e := dbfuncs.GetOneFrom("Users", "ID", dbfuncs.DoSQLOption("email = ? OR nickname = ?", "", "", login, login), nil)
+	res, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+		What:    "id",
+		Table:   "Users",
+		Options: dbfuncs.DoSQLOption("email = ?", "", "", email),
+	})
 	if e != nil {
-		return e
+		return errors.New("password do not changed")
 	}
 
 	password, e := bcrypt.GenerateFromPassword([]byte(newPass), 4)
 	if e != nil {
-		return e
+		return errors.New("the new password do not created")
 	}
-	return dbfuncs.ChangeUser(&dbfuncs.Users{ID: dbfuncs.FromINT64ToINT(res[0]), Password: string(password)}, "")
+	return dbfuncs.ChangeUser(&dbfuncs.Users{ID: dbfuncs.FromINT64ToINT(res[0]), Password: string(password)})
 }
 
-// restore send on email message code to restore password
-func (app *Application) restore(w http.ResponseWriter, r *http.Request) error {
+// ResetPassword send on email message code to reset password
+func (app *Application) ResetPassword(w http.ResponseWriter, r *http.Request) error {
 	email := r.PostFormValue("email")
-	e := checkEmailAndNick(true, email, "")
-	if e != nil {
+	if e := checkEmailAndNick(true, email, ""); e != nil {
 		return e
 	}
+
 	code := StringWithCharset(8)
 	app.m.Lock()
 	app.RestoreCode[code] = email
 	app.m.Unlock()
 
-	mes := "To: " + email + "\nFrom: " + "ani_for@bk.ru" + "\nSubject: Restore password\n\n" +
-		"You will be going to restore password on AniFor. \nEnter this code on site: " + code +
-		"\nOr visit this: https://" + r.Host + "/sign/r/" + code +
+	mes := "To: " + email + "\nFrom: " + "wnet.soc.net@gmail.com" + "\nSubject: Restore password\n\n" +
+		"You will be going to restore password on WNET. \nEnter this code on site: " + code +
+		"\nOr visit this: " + r.Header.Get("origin") + "/sign/rst/" + code +
 		"\nBe careful this code retire at the end of the day."
-	e = SendMail(mes, []string{email})
-	if e != nil {
-		return errors.New("wrong email")
+	if e := SendMail(mes, []string{email}); e != nil {
+		return errors.New("Wrong email")
 	}
 	return nil
 }
 
 // SendMail send msg-mail from -> to
 func SendMail(msg string, to []string) error {
-	host := "smtp.mail.ru"
-	from := "ani_for@bk.ru"
-	auth := smtp.PlainAuth("", from, "89f90gMiras", host)
-	if e := smtp.SendMail(host+":25", auth, from, to, []byte(msg)); e != nil {
-		return e
+	host := "smtp.gmail.com"
+	port := ":25"
+	from := "wnet.soc.net@gmail.com"
+	pass := "tyhcheejbpzatvha"
+	auth := smtp.PlainAuth("", from, pass, host)
+
+	if e := smtp.SendMail(host+port, auth, from, to, []byte(msg)); e != nil {
+		return errors.New("Wrong email!")
 	}
 	return nil
 }

@@ -1,7 +1,3 @@
-/*
-	general functions: crud op funcs
-*/
-
 package dbfuncs
 
 import (
@@ -10,6 +6,35 @@ import (
 	"fmt"
 	"strings"
 )
+
+// SQLGetParams one sql get query
+type SQLSelectParams struct {
+	What    string
+	Table   string
+	Options SQLOption
+	Joins   []SQLJoin
+	Args    []interface{}
+}
+
+// SQLDeleteParams one sql delete query
+type SQLDeleteParams struct {
+	Table   string
+	Options SQLOption
+}
+
+// SQLUpdateParams one sql update query
+type SQLUpdateParams struct {
+	Table   string
+	Couples map[string]string
+	Options SQLOption
+}
+
+// SQLInsertParams one sql insert query
+type SQLInsertParams struct {
+	Table  string
+	Datas  string
+	Values []interface{}
+}
 
 // SQLOption set option
 type SQLOption struct {
@@ -46,18 +71,23 @@ const (
 	ONQ     = "ON intersection "
 )
 
-// insert - insert new note to all type
-func insert(table, whatInsert string, values []interface{}) (sql.Result, error) {
-	st, e := ConnToDB.PrepareContext(context.Background(), strings.ReplaceAll(INSERTQ, "table", table)+
-		strings.ReplaceAll(VALUESQ, "values", whatInsert))
+/* ------------------------------------ INSERT -------------------------------------- */
+func prepareInsertQueryAndArgs(params SQLInsertParams) string {
+	return strings.ReplaceAll(INSERTQ, "table", params.Table) + strings.ReplaceAll(VALUESQ, "values", params.Datas)
+}
+
+func insertSQL(params SQLInsertParams) (sql.Result, error) {
+	st, e := ConnToDB.PrepareContext(
+		context.Background(),
+		prepareInsertQueryAndArgs(params),
+	)
 	if e != nil {
 		return nil, e
 	}
-	return st.Exec(values...)
+	return st.Exec(params.Values...)
 }
 
-// insertBySelect - insert by select
-func insertBySelect(table string, values []interface{}, op SQLOption) (sql.Result, error) {
+func insertBySelect(table, datas string, values []interface{}, op SQLOption) (sql.Result, error) {
 	q := strings.ReplaceAll(INSERTQ, "table", table) + strings.ReplaceAll(SELECTQ, "what", "null,"+strings.ReplaceAll(fmt.Sprint(values...), " ", ","))
 	if op.Where != "" {
 		q += strings.ReplaceAll(WHEREQ, "condition", op.Where)
@@ -65,63 +95,88 @@ func insertBySelect(table string, values []interface{}, op SQLOption) (sql.Resul
 	return ConnToDB.ExecContext(context.Background(), q, op.Args...)
 }
 
-// update - update all using table, set values, condition
-func update(table, couples string, op SQLOption) (sql.Result, error) {
-	q := strings.ReplaceAll(UPDATEQ, "table", table) + strings.ReplaceAll(SETQ, "values", couples)
-	if op.Where != "" {
-		q += strings.ReplaceAll(WHEREQ, "condition", op.Where)
+/* ------------------------------------ UPDATE -------------------------------------- */
+func prepareUpdateQueryAndArgs(params SQLUpdateParams) string {
+	values := ""
+	for k, v := range params.Couples {
+		values += k + "='" + v + "',"
 	}
-	if op.Order != "" {
-		q += strings.ReplaceAll(ORDERQ, "order", op.Order)
+	values = values[:len(values)-1]
+
+	q := strings.ReplaceAll(UPDATEQ, "table", params.Table) + strings.ReplaceAll(SETQ, "values", values)
+	if params.Options.Where != "" {
+		q += strings.ReplaceAll(WHEREQ, "condition", params.Options.Where)
 	}
-	if op.Limit != "" {
-		q += strings.ReplaceAll(LIMITQ, "limit", op.Limit)
+	if params.Options.Order != "" {
+		q += strings.ReplaceAll(ORDERQ, "order", params.Options.Order)
 	}
-	r, e := ConnToDB.ExecContext(context.Background(), q, op.Args...)
-	return r, e
+	if params.Options.Limit != "" {
+		q += strings.ReplaceAll(LIMITQ, "limit", params.Options.Limit)
+	}
+	return q
 }
 
-// deleteSQL ...
-func deleteSQL(table string, op SQLOption) (sql.Result, error) {
-	q := strings.ReplaceAll(DELETEQ, "table", table)
-	if op.Where != "" {
-		q += strings.ReplaceAll(WHEREQ, "condition", op.Where)
-	}
-	if op.Order != "" {
-		q += strings.ReplaceAll(ORDERQ, "order", op.Order)
-	}
-	if op.Limit != "" {
-		q += strings.ReplaceAll(LIMITQ, "limit", op.Limit)
-	}
-	return ConnToDB.ExecContext(context.Background(), q, op.Args...)
+func updateSQL(params SQLUpdateParams) (sql.Result, error) {
+	q := prepareUpdateQueryAndArgs(params)
+	return ConnToDB.ExecContext(context.Background(), q, params.Options.Args...)
 }
 
-// get - wrapper to sql select
-func get(what, table string, op SQLOption, joins []SQLJoin) ([][]interface{}, error) {
-	res := [][]interface{}{}
-	q := strings.ReplaceAll(SELECTQ, "what", what) + strings.ReplaceAll(FROMQ, "table", table)
+/* ------------------------------------ DELETE -------------------------------------- */
+func prepareDeleteQueryAndArgs(params SQLDeleteParams) string {
+	q := strings.ReplaceAll(DELETEQ, "table", params.Table)
+	if params.Options.Where != "" {
+		q += strings.ReplaceAll(WHEREQ, "condition", params.Options.Where)
+	}
+	if params.Options.Order != "" {
+		q += strings.ReplaceAll(ORDERQ, "order", params.Options.Order)
+	}
+	if params.Options.Limit != "" {
+		q += strings.ReplaceAll(LIMITQ, "limit", params.Options.Limit)
+	}
+	return q
+}
 
-	args := []interface{}{}
-	if joins != nil {
-		for _, v := range joins {
+func deleteSQL(params SQLDeleteParams) (sql.Result, error) {
+	q := prepareDeleteQueryAndArgs(params)
+	return ConnToDB.ExecContext(context.Background(), q, params.Options.Args...)
+}
+
+/* ------------------------------------ SELECT -------------------------------------- */
+func prepareGetQueryAndArgs(params SQLSelectParams) (string, []interface{}) {
+	q := strings.ReplaceAll(SELECTQ, "what", params.What) + strings.ReplaceAll(FROMQ, "table", params.Table)
+
+	args := params.Args
+	if args == nil {
+		args = []interface{}{}
+	}
+	if params.Joins != nil {
+		for _, v := range params.Joins {
 			args = append(args, v.Args...)
 			q += strings.ReplaceAll(v.JoinType, "table", v.JoinTable) + strings.ReplaceAll(ONQ, "intersection", v.Intersection)
 		}
 	}
 
-	if op.Where != "" {
-		q += strings.ReplaceAll(WHEREQ, "condition", op.Where)
+	if params.Options.Where != "" {
+		q += strings.ReplaceAll(WHEREQ, "condition", params.Options.Where)
 	}
-	if op.Order != "" {
-		q += strings.ReplaceAll(ORDERQ, "order", op.Order)
+	if params.Options.Order != "" {
+		q += strings.ReplaceAll(ORDERQ, "order", params.Options.Order)
 	}
-	if op.Limit != "" {
-		q += strings.ReplaceAll(LIMITQ, "limit", op.Limit)
+	if params.Options.Limit != "" {
+		q += strings.ReplaceAll(LIMITQ, "limit", params.Options.Limit)
 	}
-	args = append(args, op.Args...)
+	args = append(args, params.Options.Args...)
 
-	rows, e := ConnToDB.QueryContext(context.Background(), q, args...)
+	return q, args
+}
+
+func selectSQL(query string, args []interface{}) ([][]interface{}, error) {
+	fmt.Println(query, args)
+	fmt.Println("-----------------------")
+	res := [][]interface{}{}
+	rows, e := ConnToDB.QueryContext(context.Background(), query, args...)
 	if e != nil {
+		fmt.Println("error:", e)
 		return nil, e
 	}
 	cols, _ := rows.Columns()
@@ -132,8 +187,8 @@ func get(what, table string, op SQLOption, joins []SQLJoin) ([][]interface{}, er
 		for i := range currentRow {
 			pointers[i] = &currentRow[i]
 		}
-		e = rows.Scan(pointers...)
-		if e != nil {
+
+		if e = rows.Scan(pointers...); e != nil {
 			return nil, e
 		}
 		res = append(res, currentRow)

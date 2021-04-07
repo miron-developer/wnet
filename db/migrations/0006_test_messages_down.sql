@@ -1,0 +1,1 @@
+DELETE FROM Messages WHERE body = "test message";

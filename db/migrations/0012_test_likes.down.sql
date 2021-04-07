@@ -1,0 +1,1 @@
+DELETE FROM Likes WHERE id < 7;

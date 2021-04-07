@@ -1,18 +1,19 @@
 package app
 
 import (
-	"anifor/app/dbfuncs"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"time"
+	"wnet/app/dbfuncs"
 
 	uuid "github.com/satori/go.uuid"
 )
 
 const sessionExpire = 24 * time.Hour
 const timeSecond = time.Second
-const cookieName = "sesid"
+const cookieName = "wnetID"
 
 // get uuid for session
 func sessionID() string {
@@ -21,20 +22,22 @@ func sessionID() string {
 	return fmt.Sprint(u1)
 }
 
-func updateCooks(w http.ResponseWriter, sid string) {
+func setCookie(w http.ResponseWriter, sid string, expire int) {
 	sidCook := http.Cookie{
-		Name:     cookieName,
-		Value:    url.QueryEscape(sid),
+		Name:   cookieName,
+		Value:  url.QueryEscape(sid),
+		MaxAge: expire,
+
 		Path:     "/",
+		SameSite: http.SameSiteNoneMode,
+		Secure:   true,
 		HttpOnly: true,
-		MaxAge:   int(sessionExpire / timeSecond),
-		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, &sidCook)
 }
 
-func updateActivitie(userID int) {
-	dbfuncs.ChangeUser(&dbfuncs.Users{ID: userID, LastActivitie: TimeExpire(time.Nanosecond)}, "")
+func updateStatus(userID int, status string) {
+	dbfuncs.ChangeUser(&dbfuncs.Users{ID: userID, Status: status})
 }
 
 // SessionStart start user session
@@ -48,7 +51,13 @@ func SessionStart(w http.ResponseWriter, r *http.Request, login string, userID i
 	if e == nil && cookie.Value != "" {
 		sidFromCookie, _ = url.QueryUnescape(cookie.Value)
 	}
-	res, e := dbfuncs.GetOneFrom("Sessions", "ID", dbfuncs.DoSQLOption("userID = ?", "", "", userID), nil)
+
+	res, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+		Table:   "Sessions",
+		What:    "id",
+		Options: dbfuncs.DoSQLOption("userID = ?", "", "", userID),
+		Joins:   nil,
+	})
 	if res != nil && e == nil {
 		sidFromDB = res[0].(string)
 	}
@@ -71,21 +80,25 @@ func SessionStart(w http.ResponseWriter, r *http.Request, login string, userID i
 		e = dbfuncs.ChangeSession(s)
 	}
 	if e != nil {
-		return e
+		return errors.New("Session error")
 	}
 
-	updateCooks(w, sid)
+	setCookie(w, sid, int(sessionExpire/timeSecond))
+	updateStatus(userID, "online")
 	return nil
 }
 
 // SessionGC delete expired session
 func (app *Application) SessionGC() error {
-	return dbfuncs.DeleteSession("datetime(expire) < datetime('" + TimeExpire(time.Nanosecond) + "')")
+	return dbfuncs.DeleteByParams(dbfuncs.SQLDeleteParams{
+		Table:   "Sessions",
+		Options: dbfuncs.DoSQLOption("datetime(expire) < datetime('"+TimeExpire(time.Nanosecond)+"')", "", ""),
+	})
 }
 
 var min = 0
 
-// CheckPerMin call SessionGC per minute that delete expired sessions
+// CheckPerMin call SessionGC per minute that delete expired sessions and do db backup
 func (app *Application) CheckPerMin() {
 	for {
 		timer := time.NewTimer(1 * time.Minute)

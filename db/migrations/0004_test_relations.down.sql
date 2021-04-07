@@ -1,0 +1,1 @@
+DELETE FROM Relations WHERE id < 7;

@@ -1,0 +1,1 @@
+DELETE FROM Comments WHERE body = "test comment";
