@@ -36,8 +36,9 @@ func setCookie(w http.ResponseWriter, sid string, expire int) {
 	http.SetCookie(w, &sidCook)
 }
 
-func updateStatus(userID int, status string) {
-	dbfuncs.ChangeUser(&dbfuncs.Users{ID: userID, Status: status})
+func updateStatus(userID int, status string) error {
+	user := &dbfuncs.User{ID: userID, Status: status}
+	return user.Change()
 }
 
 // SessionStart start user session
@@ -73,11 +74,11 @@ func SessionStart(w http.ResponseWriter, r *http.Request, login string, userID i
 	}
 
 	// create or change session
-	s := &dbfuncs.Sessions{ID: sid, Expire: TimeExpire(sessionExpire), UserID: userID}
+	s := &dbfuncs.Session{ID: sid, Expire: TimeExpire(sessionExpire), UserID: userID}
 	if isToCreate {
-		e = dbfuncs.CreateSession(s)
+		e = s.Create()
 	} else {
-		e = dbfuncs.ChangeSession(s)
+		e = s.Change()
 	}
 	if e != nil {
 		return errors.New("Session error")
@@ -107,7 +108,7 @@ func (app *Application) CheckPerMin() {
 		min++
 		if min == 60*24 {
 			min = 0
-			app.UsersCode = map[string]*dbfuncs.Users{}
+			app.UsersCode = map[string]*dbfuncs.User{}
 			app.RestoreCode = map[string]string{}
 		}
 		if min == 30 {

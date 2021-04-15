@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS Groups (
     FOREIGN KEY (ownerUserID) REFERENCES Users(id) ON DELETE CASCADE,
     CHECK(
         type = "group" AND
-        age > 0 AND
+        age >= 0 AND
         cdate IS strftime('%Y-%m-%d', cdate) AND
         LENGTH(about) <= 400 AND
         isPrivate IN (0, 1)
@@ -88,6 +88,17 @@ CREATE TABLE IF NOT EXISTS Messages (
     )
 );
 
+-- opened chats
+CREATE TABLE IF NOT EXISTS Chats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    senderUserID INTEGER,
+    receiverUserID INTEGER,
+    receiverGroupID INTEGER,
+    FOREIGN KEY (senderUserID) REFERENCES Users(id) ON DELETE CASCADE,
+	FOREIGN KEY (receiverUserID) REFERENCES Users(id) ON DELETE CASCADE,
+	FOREIGN KEY (receiverGroupID) REFERENCES Groups(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS Events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT NOT NULL,
@@ -118,15 +129,17 @@ CREATE TABLE IF NOT EXISTS EventAnswers (
 
 CREATE TABLE IF NOT EXISTS Relations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    value INTEGER, -- point what type of relation is it.
+    value INTEGER, -- if send req = -1; if follow one = 1(sender follow receiver); if both follow = 0.
     senderUserID INTEGER,
+    senderGroupID INTEGER,
     receiverUserID INTEGER,
     receiverGroupID INTEGER,
     FOREIGN KEY (senderUserID) REFERENCES Users(id) ON DELETE CASCADE,
+	FOREIGN KEY (senderGroupID) REFERENCES Groups(id) ON DELETE CASCADE,
 	FOREIGN KEY (receiverUserID) REFERENCES Users(id) ON DELETE CASCADE,
 	FOREIGN KEY (receiverGroupID) REFERENCES Groups(id) ON DELETE CASCADE,
     CHECK(
-        value IN(0, 1, -1) -- if send req = -1; if follow one = 1(sender follow receiver); if both follow = 0
+        value IN(0, 1, -1) 
     )
 );
 
@@ -137,6 +150,7 @@ CREATE TABLE IF NOT EXISTS Media (
     type TEXT,
     datetime INTEGER NOT NULL,
     src TEXT NOT NULL,
+    preview TEXT, -- for video poster
     userID INTEGER, -- if media uploaded as gallery to user
     groupID INTEGER, -- if media uploaded as gallery to group
     FOREIGN KEY (userID) REFERENCES Users(id) ON DELETE CASCADE,
@@ -220,6 +234,7 @@ CREATE TABLE IF NOT EXISTS Likes (
 CREATE TABLE IF NOT EXISTS Files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT,
+    src TEXT NOT NULL,
     userID INTEGER,
     postID INTEGER, -- if clipped to post, id > 0
     commentID INTEGER, -- if clipped to comment, id > 0
@@ -229,6 +244,6 @@ CREATE TABLE IF NOT EXISTS Files (
 	FOREIGN KEY (commentID) REFERENCES Comments(id) ON DELETE CASCADE,
 	FOREIGN KEY (messageID) REFERENCES Messages(id) ON DELETE CASCADE,
     CHECK(
-        type IN("audio", "video", "photo", "file")
+        type IN("audio", "video", "image", "file")
     )
 );

@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -67,326 +66,85 @@ func (app *Application) CreateWSUser(w http.ResponseWriter, r *http.Request) {
 
 /* ------------------------------------------- API ------------------------------------------------ */
 
-// HNews for handle '/api/news'
-func (app *Application) HNews(w http.ResponseWriter, r *http.Request) {
+func (app *Application) HApi(w http.ResponseWriter, r *http.Request, f func(w http.ResponseWriter, r *http.Request) (interface{}, error)) {
 	if r.Method == "GET" {
 		data := API_RESPONSE{
 			Err:  "ok",
 			Data: "",
 		}
 
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			data.Err = "Not logged"
-			doJS(w, data)
-			return
-		}
-
-		first, count := getLimit(r)
-
-		followingS := `(SELECT receiverUserID FROM Relations WHERE senderUserID = ?),
-			(SELECT senderUserID FROM Relations WHERE receiverUserID = ? AND value = 0),
-			(SELECT receiverGroupID FROM Relations WHERE senderUserID = ?)`
-
-		// res ex: [[4 post 1588670115000] [3 event 1588670115000]]
-		newsIDS, e := dbfuncs.GetWithQueryAndArgs(
-			`SELECT id, type, datetime FROM Posts WHERE userID IN(`+followingS+`)
-			UNION ALL
-			SELECT id, type, datetime FROM Events WHERE userID IN(`+followingS+`) ORDER BY datetime DESC LIMIT ?,?`,
-			[]interface{}{userID, userID, userID, userID, userID, userID, first, count},
-		)
+		ids, e := f(w, r)
 		if e != nil {
-			data.Err = "wrong data"
-			doJS(w, data)
-			return
+			data.Err = e.Error()
 		}
-
-		data.Data = dbfuncs.MapFromStructAndMatrix(newsIDS, struct {
-			ID       int    `json:"id"`
-			Type     string `json:"type"`
-			Datetime int    `json:"datetime"`
-		}{})
+		data.Data = ids
 		doJS(w, data)
 	}
+}
+
+// HNews for handle '/api/news'
+func (app *Application) HNews(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.News)
+}
+
+// HPublications for handle '/api/publications'
+func (app *Application) HPublications(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Publications)
 }
 
 // HNotifications for handle '/api/notifications'
 func (app *Application) HNotifications(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		data := API_RESPONSE{
-			Err:  "ok",
-			Data: "",
-		}
+	app.HApi(w, r, app.Notifications)
+}
 
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			data.Err = "Not logged"
-			doJS(w, data)
-			return
-		}
+// HGallery for handle '/api/gallery'
+func (app *Application) HGallery(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Gallery)
+}
 
-		first, count := getLimit(r)
-		followingS := `(SELECT receiverUserID FROM Relations WHERE senderUserID = ?),
-			(SELECT senderUserID FROM Relations WHERE receiverUserID = ? AND value = 0),
-			(SELECT receiverGroupID FROM Relations WHERE senderUserID = ?)`
+// HUsers for handle '/api/followers'
+func (app *Application) HUsers(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Users)
+}
 
-		data.Data = generalGet(
-			w,
-			r,
-			dbfuncs.SQLSelectParams{
-				Table: "Notifications",
-				What:  "id, type",
-				Options: dbfuncs.DoSQLOption(
-					"receiverUserID=? OR senderUserID IN("+followingS+")",
-					"datetime DESC",
-					"?,?",
-					userID, userID, userID, userID, first, count,
-				),
-			},
-			struct {
-				ID   int `json:"id"`
-				Type int `json:"type"`
-			}{},
-		)
-		doJS(w, data)
-	}
+// HGroups for handle '/api/groups'
+func (app *Application) HGroups(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Groups)
+}
+
+// HChats for handle '/api/chats'
+func (app *Application) HChats(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Chats)
+}
+
+// HEvents for handle '/api/events'
+func (app *Application) HEvents(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Events)
 }
 
 // HNotification for handle '/api/notification'
 func (app *Application) HNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		data := API_RESPONSE{
-			Err:  "ok",
-			Data: "",
-		}
-
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			data.Err = "Not logged"
-			doJS(w, data)
-			return
-		}
-
-		ID, e := strconv.Atoi(r.FormValue("id"))
-		if e != nil {
-			data.Err = "wrong id"
-			doJS(w, data)
-			return
-		}
-
-		noteType, e := strconv.Atoi(r.FormValue("type"))
-		if e != nil {
-			data.Err = "wrong type"
-			doJS(w, data)
-			return
-		}
-
-		getType := ""
-		whatData := "title"
-		whatID := ""
-		if noteType == 1 || noteType == 10 || noteType == 20 {
-			getType = "Posts"
-			whatID = "postID"
-		} else if noteType == 2 {
-			getType = "Events"
-			whatID = "eventID"
-		} else if noteType == 3 || noteType == 4 {
-			getType = "Groups"
-			whatID = "groupID"
-		} else if noteType == 11 || noteType == 21 {
-			getType = "Comments"
-			whatData = "body"
-			whatID = "commentID"
-		} else {
-			getType = "Media"
-			whatID = "mediaID"
-		}
-
-		selectGetTypeQ := dbfuncs.SQLSelectParams{
-			Table:   getType,
-			What:    whatData,
-			Options: dbfuncs.DoSQLOption("id = n."+whatID, "", ""),
-		}
-		userQ := dbfuncs.SQLSelectParams{
-			Table:   "Users",
-			What:    "nName",
-			Options: dbfuncs.DoSQLOption("id = n.senderUserID", "", ""),
-		}
-
-		mainQ := dbfuncs.SQLSelectParams{
-			Table:   "Notifications as n",
-			What:    "n.*",
-			Options: dbfuncs.DoSQLOption("n.id=?", "", "", ID),
-		}
-
-		datas, e := dbfuncs.GetWithSubqueries(mainQ, []dbfuncs.SQLSelectParams{selectGetTypeQ, userQ}, []string{"whatData", "nickname"}, dbfuncs.Notifications{})
-		if e != nil {
-			data.Err = e.Error()
-		}
-		data.Data = datas
-		doJS(w, data)
-
-		fmt.Println("note", datas)
-	}
+	app.HApi(w, r, app.Notification)
 }
 
 // HUser for handle '/api/user/'
 func (app *Application) HUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		data := API_RESPONSE{
-			Err:  "ok",
-			Data: "",
-		}
+	app.HApi(w, r, app.User)
+}
 
-		ID, e := strconv.Atoi(r.FormValue("id"))
-		if e != nil {
-			data.Err = "wrong id"
-			doJS(w, data)
-			return
-		}
-
-		mainQ := dbfuncs.SQLSelectParams{
-			Table:   "Users",
-			What:    "*",
-			Options: dbfuncs.DoSQLOption("id=?", "", "", ID),
-		}
-		followersQ := dbfuncs.SQLSelectParams{
-			Table:   "Relations",
-			What:    "COUNT(id) as followersCount",
-			Options: dbfuncs.DoSQLOption("receiverUserID=?", "", "", ID),
-		}
-		followingQ := dbfuncs.SQLSelectParams{
-			Table:   "Relations",
-			What:    "COUNT(id) as followingCount",
-			Options: dbfuncs.DoSQLOption("senderUserID=? OR (receiverUserID=? AND value = 0)", "", "", ID, ID),
-		}
-		eventsQ := dbfuncs.SQLSelectParams{
-			Table:   "Events",
-			What:    "COUNT(id) as eventsCount",
-			Options: dbfuncs.DoSQLOption("userID=?", "", "", ID),
-		}
-		groupsQ := dbfuncs.SQLSelectParams{
-			Table:   "Relations",
-			What:    "COUNT(id) as groupsCount",
-			Options: dbfuncs.DoSQLOption("senderUserID=? AND receiverGroupID IS NOT NULL", "", "", ID),
-		}
-		mediaQ := dbfuncs.SQLSelectParams{
-			Table:   "Media",
-			What:    "COUNT(id) as galleryCount",
-			Options: dbfuncs.DoSQLOption("userID=?", "", "", ID),
-		}
-
-		datas, e := dbfuncs.GetWithSubqueries(
-			mainQ,
-			[]dbfuncs.SQLSelectParams{followersQ, followingQ, eventsQ, groupsQ, mediaQ},
-			[]string{"followersCount", "followingCount", "eventsCount", "groupsCount", "galleryCount"},
-			dbfuncs.Users{},
-		)
-		if len(datas) == 0 || e != nil {
-			data.Err = "no data"
-		}
-		data.Data = datas
-
-		doJS(w, data)
-	}
+// HGroup for handle '/api/group'
+func (app *Application) HGroup(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Group)
 }
 
 // HPost for handle '/api/post'
 func (app *Application) HPost(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		data := API_RESPONSE{
-			Err:  "ok",
-			Data: "",
-		}
-
-		ID, e := strconv.Atoi(r.FormValue("id"))
-		if e != nil {
-			data.Err = "wrong id"
-			doJS(w, data)
-			return
-		}
-
-		userID := getUserIDfromReq(w, r)
-		if !isHaveAccessToPost(ID, userID) {
-			data.Err = "not have access"
-			doJS(w, data)
-			return
-		}
-
-		carmaQ := carmaQ("postID", ID)
-
-		userJoin := userJoin("u.id = p.userID")
-		groupJoin := groupJoin("g.id = p.groupID")
-		likesJoin := likeJoin("l.userID = p.userID AND l.postID = p.id")
-		mainQ := dbfuncs.SQLSelectParams{
-			Table:   "Posts as p",
-			What:    "p.*, u.nName, u.ava, u.status, g.title, g.ava, l.id IS NOT NULL",
-			Options: dbfuncs.DoSQLOption("p.id = ?", "", "", ID),
-			Joins:   []dbfuncs.SQLJoin{userJoin, groupJoin, likesJoin},
-		}
-
-		if data.Data, e = dbfuncs.GetWithSubqueries(
-			mainQ,
-			[]dbfuncs.SQLSelectParams{carmaQ},
-			[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "isLiked", "carma"},
-			dbfuncs.Posts{},
-		); e != nil {
-			data.Err = e.Error()
-		}
-		doJS(w, data)
-	}
+	app.HApi(w, r, app.Post)
 }
 
 // HEvent for handle '/api/event'
 func (app *Application) HEvent(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		data := API_RESPONSE{
-			Err:  "ok",
-			Data: "",
-		}
-
-		ID, e := strconv.Atoi(r.FormValue("id"))
-		if e != nil {
-			data.Err = "wrong id"
-			doJS(w, data)
-			return
-		}
-
-		userID := getUserIDfromReq(w, r)
-		if !isHaveAccess(ID, userID, "Events") {
-			data.Err = "not have access"
-			doJS(w, data)
-			return
-		}
-
-		userJoin := userJoin("u.id = e.userID")
-		groupJoin := groupJoin("g.id = e.groupID")
-		eventAnswersJoin := dbfuncs.DoSQLJoin(dbfuncs.LOJOINQ, "EventAnswers AS ea", "ea.userID = ? AND ea.eventID = e.id", userID)
-
-		eventAnswersGoingQ := eventAnswerQ(0, ID)
-		eventAnswersNotGoingQ := eventAnswerQ(1, ID)
-		eventAnswersIDKQ := eventAnswerQ(2, ID)
-		mainQ := dbfuncs.SQLSelectParams{
-			Table:   "Events as e",
-			What:    "e.*, u.nName, u.ava, u.status, g.title, g.ava, ea.answer",
-			Options: dbfuncs.DoSQLOption("e.id = ?", "", "", ID),
-			Joins:   []dbfuncs.SQLJoin{userJoin, groupJoin, eventAnswersJoin},
-		}
-
-		datas, e := dbfuncs.GetWithSubqueries(
-			mainQ,
-			[]dbfuncs.SQLSelectParams{eventAnswersGoingQ, eventAnswersNotGoingQ, eventAnswersIDKQ},
-			[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "myVote", "votes0", "votes1", "votes2"},
-			dbfuncs.Events{},
-		)
-		if e != nil {
-			data.Err = "wrong data"
-			doJS(w, data)
-			return
-		}
-		data.Data = datas
-		doJS(w, data)
-	}
+	app.HApi(w, r, app.Event)
 }
 
 // Hposts for handle '/api/posts'
@@ -418,7 +176,7 @@ func (app *Application) Hposts(w http.ResponseWriter, r *http.Request) {
 				Options: op,
 				Joins:   nil,
 			},
-			dbfuncs.Posts{},
+			dbfuncs.Post{},
 		)
 	}
 }
@@ -447,50 +205,9 @@ func (app *Application) Hcomments(w http.ResponseWriter, r *http.Request) {
 				Options: op,
 				Joins:   []dbfuncs.SQLJoin{join},
 			},
-			dbfuncs.Comments{},
+			dbfuncs.Comment{},
 			"userPhoto",
 			"nickname",
-		)
-	}
-}
-
-// Husers for handle '/api/users'
-func (app *Application) Husers(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		first, count := getLimit(r)
-		criterie := r.FormValue("criterie")
-		if criterie != "all" && criterie != "friends" && criterie != "wrote" {
-			return
-		}
-
-		params := dbfuncs.SQLSelectParams{
-			Table: "Users as u",
-			What:  "DISTINCT u.*",
-			Joins: nil,
-		}
-		op := dbfuncs.DoSQLOption("", "u.nickname ASC", "?,?")
-		if criterie == "friends" {
-			userID := getUserIDfromReq(w, r)
-			if userID == -1 {
-				return
-			}
-			IDstring := strconv.Itoa(userID)
-			op.Where = "friends LIKE '%" + IDstring + "%' AND ID != " + IDstring + ""
-		} else if criterie == "wrote" {
-			userID := getUserIDfromReq(w, r)
-			if userID == -1 {
-				return
-			}
-			op.Order = "datetime(m.date) DESC, " + op.Order
-			params.Joins = []dbfuncs.SQLJoin{dbfuncs.DoSQLJoin(dbfuncs.LOJOINQ, "Messages as m", "u.id=m.receiverID AND m.senderID=?", userID)}
-		}
-		op.Args = append(op.Args, first, count)
-		params.Options = op
-		generalGet(
-			w,
-			r,
-			params,
-			dbfuncs.Users{},
 		)
 	}
 }
@@ -518,7 +235,7 @@ func (app *Application) Hmessages(w http.ResponseWriter, r *http.Request) {
 				Options: op,
 				Joins:   nil,
 			},
-			dbfuncs.Messages{},
+			dbfuncs.Message{},
 		)
 	}
 }
@@ -534,6 +251,11 @@ func (app *Application) HonlineUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		doJS(w, data)
 	}
+}
+
+// HGetFile save one file
+func (app *Application) HGetFile(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.GetFile)
 }
 
 /* --------------------------------------------- Logical ---------------------------------- */
@@ -694,8 +416,8 @@ func (app *Application) HChangeAvatar(w http.ResponseWriter, r *http.Request) {
 		}
 		data["link"] = newPhoto
 
-		e = dbfuncs.ChangeUser(&dbfuncs.Users{ID: userID, Avatar: newPhoto})
-		if e != nil {
+		user := &dbfuncs.User{ID: userID, Avatar: newPhoto}
+		if e = user.Change(); e != nil {
 			data["msg"] = e.Error()
 		}
 		doJS(w, data)
@@ -726,25 +448,128 @@ func (app *Application) HChangeData(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user := &dbfuncs.Users{ID: userID, NickName: r.PostFormValue("nick"), Email: r.PostFormValue("email"),
+		user := &dbfuncs.User{ID: userID, NickName: r.PostFormValue("nick"), Email: r.PostFormValue("email"),
 			FirstName: r.PostFormValue("firstName"), LastName: r.PostFormValue("lastName")}
 		age, e := strconv.Atoi(r.PostFormValue("age"))
 		if e == nil {
 			user.Age = age
 		}
 
-		e = dbfuncs.ChangeUser(user)
-		if e != nil {
+		if e = user.Change(); e != nil {
 			data["msg"] = e.Error()
 		}
 		doJS(w, data)
 	}
 }
 
-// ------------------------------------------- Post ------------------------------------------
+// ------------------------------------------- Change ------------------------------------------
 
-// HSavePost create one post
+// HConfirmSettings save user settings
+func (app *Application) HConfirmSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		data := API_RESPONSE{
+			Err:  "ok",
+			Data: "",
+		}
+
+		if e := app.ConfirmChangeSettings(w, r); e != nil {
+			data.Err = e.Error()
+		}
+		doJS(w, data)
+	}
+}
+
+// HChangeSettings save user settings
+func (app *Application) HChangeSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		data := API_RESPONSE{
+			Err:  "ok",
+			Data: "",
+		}
+
+		if e := app.ChangeSettings(w, r); e != nil {
+			data.Err = e.Error()
+		}
+		doJS(w, data)
+	}
+}
+
+// HChangeProfile user/group data
+func (app *Application) HChangeProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		data := API_RESPONSE{
+			Err:  "ok",
+			Data: "",
+		}
+
+		if e := app.ChangeProfile(w, r); e != nil {
+			data.Err = e.Error()
+		}
+		doJS(w, data)
+	}
+}
+
+// ------------------------------------------- Save ------------------------------------------
+
+// general handler for all save paths
+func (app *Application) HSaves(w http.ResponseWriter, r *http.Request, f func(w http.ResponseWriter, r *http.Request) (interface{}, error)) {
+	if r.Method == "POST" {
+		data := API_RESPONSE{
+			Err:  "ok",
+			Data: "",
+		}
+
+		datas, e := f(w, r)
+		if e != nil {
+			data.Err = e.Error()
+		}
+		data.Data = datas
+		doJS(w, data)
+	}
+}
+
+// HSavePost create post
 func (app *Application) HSavePost(w http.ResponseWriter, r *http.Request) {
+	app.HSaves(w, r, app.CreatePost)
+}
+
+// HSaveRelation create relation
+func (app *Application) HSaveRelation(w http.ResponseWriter, r *http.Request) {
+	app.HSaves(w, r, app.CreateRelation)
+}
+
+// HSaveGroup create group
+func (app *Application) HSaveGroup(w http.ResponseWriter, r *http.Request) {
+	app.HSaves(w, r, app.CreateGroup)
+}
+
+// HSaveEvent create event
+func (app *Application) HSaveEvent(w http.ResponseWriter, r *http.Request) {
+	app.HSaves(w, r, app.CreateEvent)
+}
+
+// HSaveMedia save media
+func (app *Application) HSaveMedia(w http.ResponseWriter, r *http.Request) {
+	app.HSaves(w, r, app.CreateMedia)
+}
+
+// HSaveFile save file
+func (app *Application) HSaveFile(w http.ResponseWriter, r *http.Request) {
+	app.HSaves(w, r, app.CreateFile)
+}
+
+// HSaveLikeDislike save like/dislike
+func (app *Application) HSaveLikeDislike(w http.ResponseWriter, r *http.Request) {
+	app.HSaves(w, r, app.CreateLike)
+}
+
+// HSaveEventAnswer save event answer
+func (app *Application) HSaveEventAnswer(w http.ResponseWriter, r *http.Request) {
+	app.HSaves(w, r, app.CreateEventAnswer)
+}
+
+// HSaveComment save comment
+func (app *Application) HSaveComment(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		userID := getUserIDfromReq(w, r)
 		if userID == -1 {
@@ -752,27 +577,32 @@ func (app *Application) HSavePost(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := map[string]interface{}{"msg": "ok"}
-		// XCSS
-		if app.XCSSOther(r.PostFormValue("title")) != nil ||
-			app.XCSSOther(r.PostFormValue("tags")) != nil {
-			data["msg"] = "wrong data"
+		ID, e := strconv.Atoi(r.PostFormValue("id"))
+		if e != nil {
+			data["msg"] = e.Error()
 			doJS(w, data)
 			return
 		}
 
-		p := dbfuncs.Posts{Title: r.PostFormValue("title"), Body: r.PostFormValue("body"),
-			UserID: userID, UnixDate: int(time.Now().Unix())}
-		pid, e := dbfuncs.CreatePost(&p)
-		p.ID = pid
+		c := dbfuncs.Comment{Body: r.PostFormValue("body"), UnixDate: int(time.Now().Unix() * 1000), UserID: userID, PostID: ID}
+		if r.PostFormValue("type") == "comment" {
+			c.PostID = 0
+			c.CommentID = ID
+			parentComment := &dbfuncs.Comment{ID: ID, IsHaveChild: "1"}
+			parentComment.Change()
+		}
+
+		cID, e := c.Create()
 		if e != nil {
 			data["msg"] = e.Error()
 		}
-		data["post"] = p
+		c.ID = cID
+		data["comment"] = c
 		doJS(w, data)
 	}
 }
 
-// HSaveMessage create one message
+// HSaveMessage create message
 func (app *Application) HSaveMessage(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		userID := getUserIDfromReq(w, r)
@@ -792,170 +622,12 @@ func (app *Application) HSaveMessage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		m := dbfuncs.Messages{UnixDate: int(time.Now().Unix()), Body: r.PostFormValue("body"),
+		m := dbfuncs.Message{UnixDate: int(time.Now().Unix() * 1000), Body: r.PostFormValue("body"),
 			SenderUserID: userID, ReceiverUserID: receiverID}
 
-		if e := dbfuncs.CreateMessage(&m); e != nil {
+		if e := m.Create(); e != nil {
 			data.Err = "not save message"
 		}
-		doJS(w, data)
-	}
-}
-
-// HSaveImage save one image
-func (app *Application) HSaveImage(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			return
-		}
-
-		data := map[string]interface{}{"msg": "ok"}
-		filename, e := uploadFile("img", "img", r)
-		if e != nil {
-			data["msg"] = e.Error()
-		}
-		data["fname"] = filename
-		doJS(w, data)
-	}
-}
-
-// HSaveFile save one file
-func (app *Application) HSaveFile(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			return
-		}
-
-		data := map[string]interface{}{"msg": "ok"}
-		filename, e := uploadFile("file", r.PostFormValue("type"), r)
-		if e != nil {
-			data["msg"] = e.Error()
-		}
-		data["fname"] = filename
-		doJS(w, data)
-	}
-}
-
-// HSaveComment save one comment
-func (app *Application) HSaveComment(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			return
-		}
-
-		data := map[string]interface{}{"msg": "ok"}
-		ID, e := strconv.Atoi(r.PostFormValue("id"))
-		if e != nil {
-			data["msg"] = e.Error()
-			doJS(w, data)
-			return
-		}
-
-		c := dbfuncs.Comments{Body: r.PostFormValue("body"), UnixDate: int(time.Now().Unix()), UserID: userID, PostID: ID}
-		if r.PostFormValue("type") == "comment" {
-			c.PostID = 0
-			c.CommentID = ID
-			dbfuncs.ChangeComment(&dbfuncs.Comments{ID: ID, IsHaveChild: "1"})
-		}
-
-		cID, e := dbfuncs.CreateComment(&c)
-		if e != nil {
-			data["msg"] = e.Error()
-		}
-		c.ID = cID
-		data["comment"] = c
-		doJS(w, data)
-	}
-}
-
-// HSaveLikeDislike save one like/dislike
-func (app *Application) HSaveLikeDislike(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		data := API_RESPONSE{
-			Err:  "ok",
-			Data: "",
-		}
-
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			data.Err = "not logged"
-			doJS(w, data)
-			return
-		}
-
-		ID, e := strconv.Atoi(r.PostFormValue("id"))
-		if e != nil {
-			data.Err = "wrong id"
-			doJS(w, data)
-			return
-		}
-
-		like := &dbfuncs.Likes{UserID: userID}
-		typeLike := r.PostFormValue("type")
-		if typeLike == "post" {
-			like.PostID = ID
-		} else if typeLike == "comment" {
-			like.CommentID = ID
-		} else {
-			like.MediaID = ID
-		}
-
-		setted, e := dbfuncs.SetLikes(like)
-		if e != nil {
-			data.Err = "not setted"
-			doJS(w, data)
-			return
-		}
-
-		carmaAny, e := dbfuncs.GetOneFrom(carmaQ(typeLike+"ID", ID))
-		if e != nil || carmaAny[0] == nil {
-			data.Err = e.Error()
-			doJS(w, data)
-			return
-		}
-
-		data.Data = map[string]interface{}{"carma": carmaAny[0], "isLiked": setted}
-		doJS(w, data)
-	}
-}
-
-// HSaveEventAnswer save one event answer
-func (app *Application) HSaveEventAnswer(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		data := API_RESPONSE{
-			Err:  "ok",
-			Data: "",
-		}
-
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			data.Err = "not logged"
-			doJS(w, data)
-			return
-		}
-
-		ID, e := strconv.Atoi(r.PostFormValue("id"))
-		if e != nil {
-			data.Err = "wrong id"
-			doJS(w, data)
-			return
-		}
-
-		if e := dbfuncs.CreateEventAnswer(&dbfuncs.EventAnswers{UserID: userID, EventID: ID, Answer: r.PostFormValue("answer")}); e != nil {
-			data.Err = "wrong event answer"
-		}
-
-		goingQ := eventAnswerQ(0, ID)
-		notGoingQ := eventAnswerQ(1, ID)
-		idkQ := eventAnswerQ(2, ID)
-		votes, e := dbfuncs.GetWithSubqueries(goingQ, []dbfuncs.SQLSelectParams{notGoingQ, idkQ}, []string{"votes0", "votes1", "votes2"}, struct{}{})
-		if e != nil {
-			data.Err = e.Error()
-		}
-		data.Data = votes[0]
 		doJS(w, data)
 	}
 }

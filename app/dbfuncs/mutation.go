@@ -14,42 +14,29 @@ import (
 func prepareDataAndValues(datas string, values []interface{}, options []int) (string, []interface{}) {
 	valuesCount := len(values)
 	optionsCount := len(options)
+	FKsFromIndex := valuesCount - optionsCount
 
-	repeat := func(count int) []string {
-		res := make([]string, count)
-		for i := range res {
-			res[i] = "null"
-		}
-		return res
-	}
-
-	choose := func(index int) (string, []interface{}) {
-		arrFromDatas := strings.Split(datas, ",")
-		arrFromDatas = arrFromDatas[:valuesCount-optionsCount]
-		if index > 0 {
-			arrFromDatas = append(arrFromDatas, repeat(index)...)
-		}
-		arrFromDatas = append(arrFromDatas, "?")
-		if optionsCount-index-1 > 0 {
-			arrFromDatas = append(arrFromDatas, repeat(optionsCount-index-1)...)
-		}
-		datas = strings.Join(arrFromDatas, ",")
-		values = append(values[:valuesCount-optionsCount], options[index])
-		return datas, values
+	values = values[:FKsFromIndex]
+	arrFromDatas := strings.Split(datas, ",")
+	for i := FKsFromIndex; i < len(arrFromDatas); i++ {
+		arrFromDatas[i] = "null"
 	}
 
 	for i, v := range options {
 		if v != 0 {
-			return choose(i)
+			arrFromDatas[i+FKsFromIndex] = "?"
+			values = append(values, options[i])
 		}
 	}
-	return choose(0)
+
+	datas = strings.Join(arrFromDatas, ",")
+	return datas, values
 }
 
 // ---------------------Create funcs---------------------------
 
-// CreateUser create one user
-func CreateUser(user *Users) (int, error) {
+// Create create one user
+func (user *User) Create() (int, error) {
 	if user.NickName == "" || user.Password == "" || user.Email == "" {
 		return -1, errors.New("n/d")
 	}
@@ -66,14 +53,14 @@ func CreateUser(user *Users) (int, error) {
 	return int(ID), e
 }
 
-// CreateGroup create one group
-func CreateGroup(g *Groups) (int, error) {
+// Create create one group
+func (g *Group) Create() (int, error) {
 	if g.Title == "" || g.OwnerUserID == 0 {
 		return -1, errors.New("n/d")
 	}
 
 	r, e := insertSQL(SQLInsertParams{
-		Table:  "Users",
+		Table:  "Groups",
 		Datas:  "null,?,?,?,?,?,?,?,?",
 		Values: MakeArrFromStruct(*g)[1:],
 	})
@@ -84,8 +71,8 @@ func CreateGroup(g *Groups) (int, error) {
 	return int(ID), e
 }
 
-// CreateSession create new session in db
-func CreateSession(ses *Sessions) error {
+// Create create new session in db
+func (ses *Session) Create() error {
 	if ses.ID == "" || ses.UserID == 0 || ses.Expire == "" {
 		return errors.New("n/d")
 	}
@@ -98,15 +85,15 @@ func CreateSession(ses *Sessions) error {
 	return e
 }
 
-// CreatePost one post and return it's ID
-func CreatePost(p *Posts) (int, error) {
+// Create one post and return it's ID
+func (p *Post) Create() (int, error) {
 	if p.Title == "" || p.Body == "" || p.UnixDate == 0 || p.PostType == "" {
 		return -1, errors.New("n/d")
 	}
 
 	params := SQLInsertParams{
 		Table:  "Posts",
-		Datas:  "null,?,?,?,?,?,?,?",
+		Datas:  "null,?,?,?,?,?,?,?,?",
 		Values: MakeArrFromStruct(*p),
 	}
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{p.UserID, p.GroupID})
@@ -120,8 +107,8 @@ func CreatePost(p *Posts) (int, error) {
 	return int(ID), e
 }
 
-// CreateMessage create one Message
-func CreateMessage(msg *Messages) error {
+// Create create one Message
+func (msg *Message) Create() error {
 	if msg.Body == "" || msg.UnixDate == 0 || msg.MessageType == "" || msg.SenderUserID == 0 {
 		return errors.New("n/d")
 	}
@@ -138,10 +125,27 @@ func CreateMessage(msg *Messages) error {
 	return e
 }
 
-// CreateEvent create one Events
-func CreateEvent(evnt *Events) error {
-	if evnt.Title == "" || evnt.UnixDate == 0 || evnt.About == "" {
+// Create create one Chat
+func (c *Chats) Create() error {
+	if c.SenderUserID == 0 {
 		return errors.New("n/d")
+	}
+
+	params := SQLInsertParams{
+		Table:  "Chats",
+		Datas:  "null,?,?,?",
+		Values: MakeArrFromStruct(*c),
+	}
+	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{c.ReceiverUserID, c.ReceiverGroupID})
+	params.Values = params.Values[1:]
+	_, e := insertSQL(params)
+	return e
+}
+
+// Create create one Events
+func (evnt *Event) Create() (int, error) {
+	if evnt.Title == "" || evnt.UnixDate == 0 || evnt.About == "" {
+		return -1, errors.New("n/d")
 	}
 
 	params := SQLInsertParams{
@@ -152,12 +156,16 @@ func CreateEvent(evnt *Events) error {
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{evnt.UserID, evnt.GroupID})
 	params.Values = params.Values[1:]
 
-	_, e := insertSQL(params)
-	return e
+	res, e := insertSQL(params)
+	if e != nil {
+		return -1, e
+	}
+	ID, e := res.LastInsertId()
+	return int(ID), e
 }
 
-// CreateEventAnswer create one EventAnswers
-func CreateEventAnswer(ea *EventAnswers) error {
+// Create create one EventAnswers
+func (ea *EventAnswer) Create() error {
 	if ea.Answer == "" || ea.UserID == 0 || ea.EventID == 0 {
 		return errors.New("n/d")
 	}
@@ -170,40 +178,47 @@ func CreateEventAnswer(ea *EventAnswers) error {
 	return e
 }
 
-// CreateRelation create one Relations
-func CreateRelation(r *Relations) error {
-	if r.Value == "" || r.ReceiverUserID == 0 || r.SenderUserID == 0 {
-		return errors.New("n/d")
-	}
-
-	_, e := insertSQL(SQLInsertParams{
-		Table:  "Relations",
-		Datas:  "null,?,?,?",
-		Values: MakeArrFromStruct(*r)[1:],
-	})
-	return e
-}
-
-// CreateMedia create one Media(photo&video)
-func CreateMedia(m *Media) error {
-	if m.Title == "" || m.MediaType == "" || m.UnixDate == 0 || m.Source == "" {
+// Create create one Relations
+func (r *Relation) Create() error {
+	if r.Value == "" {
 		return errors.New("n/d")
 	}
 
 	params := SQLInsertParams{
+		Table:  "Relations",
+		Datas:  "null,?,?,?,?,?",
+		Values: MakeArrFromStruct(*r),
+	}
+	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{r.SenderUserID, r.SenderGroupID, r.ReceiverUserID, r.ReceiverGroupID})
+	params.Values = params.Values[1:]
+	_, e := insertSQL(params)
+	return e
+}
+
+// Create create one Media(photo&video)
+func (m *Media) Create() (int, error) {
+	if m.Title == "" || m.MediaType == "" || m.UnixDate == 0 || m.Source == "" {
+		return -1, errors.New("n/d")
+	}
+
+	params := SQLInsertParams{
 		Table:  "Media",
-		Datas:  "null,?,?,?,?,?,?",
+		Datas:  "null,?,?,?,?,?,?,?",
 		Values: MakeArrFromStruct(*m),
 	}
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{m.UserID, m.GroupID})
 	params.Values = params.Values[1:]
 
-	_, e := insertSQL(params)
-	return e
+	res, e := insertSQL(params)
+	if e != nil {
+		return -1, e
+	}
+	ID, e := res.LastInsertId()
+	return int(ID), e
 }
 
-// CreateComment create one comment
-func CreateComment(c *Comments) (int, error) {
+// Create create one comment
+func (c *Comment) Create() (int, error) {
 	if c.Body == "" || c.UnixDate == 0 || c.UserID == 0 {
 		return -1, errors.New("n/d")
 	}
@@ -224,10 +239,10 @@ func CreateComment(c *Comments) (int, error) {
 	return int(ID), e
 }
 
-// CreateNotification create one notification
+// Create create one notification
 //  if isForAll = true, this notification for all followers
 //  else receiverUserID = null
-func CreateNotification(n *Notifications, isForAll bool) (int, error) {
+func (n *Notification) Create(isForAll bool) (int, error) {
 	if n.NotificationType == "" || n.UnixDate == 0 || n.SenderUserID == 0 {
 		return -1, errors.New("n/d")
 	}
@@ -255,8 +270,8 @@ func CreateNotification(n *Notifications, isForAll bool) (int, error) {
 	return int(ID), e
 }
 
-// SetLikes remove like or create
-func SetLikes(l *Likes) (bool, error) {
+// Set remove like or create
+func (l *Like) Set() (bool, error) {
 	if l.UserID == 0 && l.CommentID+l.MediaID+l.PostID == 0 {
 		return false, errors.New("n/d")
 	}
@@ -293,8 +308,8 @@ func SetLikes(l *Likes) (bool, error) {
 	return false, nil
 }
 
-// CreateClippedFile create one file
-func CreateClippedFile(f *ClippedFiles) (int, error) {
+// Create create one file
+func (f *ClippedFile) Create() (int, error) {
 	if f.FileType == "" || f.UserID == 0 {
 		return -1, errors.New("n/d")
 	}
@@ -317,8 +332,8 @@ func CreateClippedFile(f *ClippedFiles) (int, error) {
 
 // ---------------------Change funcs---------------------------
 
-// ChangeUser change user profile
-func ChangeUser(u *Users) error {
+// Change change user profile
+func (u *User) Change() error {
 	if u.ID == 0 {
 		return errors.New("absent/d")
 	}
@@ -329,6 +344,9 @@ func ChangeUser(u *Users) error {
 		Options: DoSQLOption("id=?", "", "", u.ID),
 	}
 
+	if u.Email != "" {
+		params.Couples["email"] = u.Email
+	}
 	if u.NickName != "" {
 		params.Couples["nName"] = u.NickName
 	}
@@ -364,8 +382,8 @@ func ChangeUser(u *Users) error {
 	return e
 }
 
-// ChangeGroup change group profile
-func ChangeGroup(g *Groups) error {
+// Change change group profile
+func (g *Group) Change() error {
 	if g.ID == 0 {
 		return errors.New("absent/d")
 	}
@@ -396,8 +414,8 @@ func ChangeGroup(g *Groups) error {
 	return e
 }
 
-// ChangeSession change expiration
-func ChangeSession(s *Sessions) error {
+// Change change expiration
+func (s *Session) Change() error {
 	if s.ID == "" || s.Expire == "" {
 		return errors.New("absent/d")
 	}
@@ -410,8 +428,8 @@ func ChangeSession(s *Sessions) error {
 	return e
 }
 
-// ChangePost change post
-func ChangePost(p *Posts) error {
+// Change change post
+func (p *Post) Change() error {
 	if p.ID == 0 {
 		return errors.New("absent/d")
 	}
@@ -435,8 +453,8 @@ func ChangePost(p *Posts) error {
 	return e
 }
 
-// ChangeMessage change message
-func ChangeMessage(msg *Messages) error {
+// Change change message
+func (msg *Message) Change() error {
 	if msg.ID == 0 || msg.Body == "" {
 		return errors.New("absent/d")
 	}
@@ -449,8 +467,8 @@ func ChangeMessage(msg *Messages) error {
 	return e
 }
 
-// ChangePost one post
-func ChangeEvent(evnt *Events) error {
+// Change one event
+func (evnt *Event) Change() error {
 	if evnt.ID == 0 {
 		return errors.New("absent/d")
 	}
@@ -471,8 +489,8 @@ func ChangeEvent(evnt *Events) error {
 	return e
 }
 
-// ChangeRelation change relation
-func ChangeRelation(r *Relations) error {
+// Change change relation
+func (r *Relation) Change() error {
 	if r.ID == 0 || r.Value == "" {
 		return errors.New("absent/d")
 	}
@@ -485,8 +503,8 @@ func ChangeRelation(r *Relations) error {
 	return e
 }
 
-// ChangeMedia change media
-func ChangeMedia(m *Media) error {
+// Change change media
+func (m *Media) Change() error {
 	if m.ID == 0 || m.Title == "" {
 		return errors.New("absent/d")
 	}
@@ -499,8 +517,8 @@ func ChangeMedia(m *Media) error {
 	return e
 }
 
-// ChangeComment change comment
-func ChangeComment(c *Comments) error {
+// Change change comment
+func (c *Comment) Change() error {
 	if c.ID == 0 {
 		return errors.New("absent/d")
 	}

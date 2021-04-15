@@ -43,21 +43,23 @@ func initGoogleDriveFileService(eLogger *log.Logger) {
 	fileService = drive.NewFilesService(service)
 }
 
-func getFileByID(fileID string) ([]byte, error) {
-	resp, e := fileService.Get(fileID).Download()
-	if e != nil {
-		return nil, errors.New("Can not get file")
+func getFileByID(fileID string) (*drive.File, []byte, error) {
+	ctx := fileService.Get(fileID)
+	resp, e := ctx.Download()
+	file, e2 := ctx.Do()
+	if e != nil || e2 != nil {
+		return nil, nil, errors.New("Can not get file")
 	}
 
 	fileData, e := ioutil.ReadAll(resp.Body)
 	if e != nil {
-		return nil, errors.New("Can not read file")
+		return nil, nil, errors.New("Can not read file")
 	}
-	return fileData, nil
+	return file, fileData, nil
 }
 
 func getDBFileFromGoogleDrive(eLogger *log.Logger) {
-	fileData, e := getFileByID(DRIVE_IDS["db"])
+	_, fileData, e := getFileByID(DRIVE_IDS["db"])
 	if e != nil {
 		eLogger.Fatal(e)
 	}
@@ -89,6 +91,6 @@ func CreateDriveFile(typeFile, name string, file io.Reader) (*drive.File, error)
 }
 
 // GetFileFromDrive get file from Google drive by id
-func GetFileFromDrive(fileID string) ([]byte, error) {
+func GetFileFromDrive(fileID string) (*drive.File, []byte, error) {
 	return getFileByID(fileID)
 }

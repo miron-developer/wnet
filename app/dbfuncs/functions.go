@@ -3,6 +3,7 @@ package dbfuncs
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -84,7 +85,12 @@ func insertSQL(params SQLInsertParams) (sql.Result, error) {
 	if e != nil {
 		return nil, e
 	}
-	return st.Exec(params.Values...)
+
+	r, e := st.Exec(params.Values...)
+	if e != nil {
+		return nil, errors.New("not created")
+	}
+	return r, nil
 }
 
 func insertBySelect(table, datas string, values []interface{}, op SQLOption) (sql.Result, error) {
@@ -118,7 +124,11 @@ func prepareUpdateQueryAndArgs(params SQLUpdateParams) string {
 
 func updateSQL(params SQLUpdateParams) (sql.Result, error) {
 	q := prepareUpdateQueryAndArgs(params)
-	return ConnToDB.ExecContext(context.Background(), q, params.Options.Args...)
+	r, e := ConnToDB.ExecContext(context.Background(), q, params.Options.Args...)
+	if e != nil {
+		return nil, errors.New("not updated")
+	}
+	return r, nil
 }
 
 /* ------------------------------------ DELETE -------------------------------------- */
@@ -138,7 +148,11 @@ func prepareDeleteQueryAndArgs(params SQLDeleteParams) string {
 
 func deleteSQL(params SQLDeleteParams) (sql.Result, error) {
 	q := prepareDeleteQueryAndArgs(params)
-	return ConnToDB.ExecContext(context.Background(), q, params.Options.Args...)
+	r, e := ConnToDB.ExecContext(context.Background(), q, params.Options.Args...)
+	if e != nil {
+		return nil, errors.New("not deleted")
+	}
+	return r, nil
 }
 
 /* ------------------------------------ SELECT -------------------------------------- */
@@ -171,8 +185,8 @@ func prepareGetQueryAndArgs(params SQLSelectParams) (string, []interface{}) {
 }
 
 func selectSQL(query string, args []interface{}) ([][]interface{}, error) {
-	fmt.Println(query, args)
-	fmt.Println("-----------------------")
+	// fmt.Println(query, args)
+	// fmt.Println("-----------------------")
 	res := [][]interface{}{}
 	rows, e := ConnToDB.QueryContext(context.Background(), query, args...)
 	if e != nil {

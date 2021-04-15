@@ -19,8 +19,9 @@ type Application struct {
 	Port                string
 	CurrentRequestCount int
 	MaxRequestCount     int
-	UsersCode           map[string]*dbfuncs.Users
+	UsersCode           map[string]*dbfuncs.User
 	RestoreCode         map[string]string
+	ChangeCode          map[string]*dbfuncs.User
 	OnlineUsers         map[int]*WSUser // online users
 	Messages            chan *WSMessage
 	ChatRooms           map[string]*ChatRoom
@@ -43,8 +44,9 @@ func InitProg() *Application {
 		Port:                "4330",
 		CurrentRequestCount: 0,
 		MaxRequestCount:     1200,
-		UsersCode:           map[string]*dbfuncs.Users{},
+		UsersCode:           map[string]*dbfuncs.User{},
 		RestoreCode:         map[string]string{},
+		ChangeCode:          map[string]*dbfuncs.User{},
 		OnlineUsers:         map[int]*WSUser{},
 		Messages:            make(chan *WSMessage),
 		ChatRooms:           map[string]*ChatRoom{},

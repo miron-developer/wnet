@@ -70,7 +70,7 @@ func (app *Application) SaveUser(w http.ResponseWriter, r *http.Request) (int, e
 		return -1, errors.New("Wrong code")
 	}
 
-	ID, e := dbfuncs.CreateUser(user)
+	ID, e := user.Create()
 	if e != nil {
 		return -1, e
 	}
@@ -133,7 +133,7 @@ func (app *Application) SignUp(w http.ResponseWriter, r *http.Request) (map[stri
 		return nil, errors.New("It's XSS attack!")
 	}
 
-	user := &dbfuncs.Users{
+	user := &dbfuncs.User{
 		FirstName: fname, LastName: lname, NickName: nickname,
 		Gender: "Default", Age: age, Avatar: "/img/default-avatar.png", Dob: dob, About: "",
 		Status: "online", IsPrivate: "0", Type: "user",
@@ -151,7 +151,7 @@ func (app *Application) SignUp(w http.ResponseWriter, r *http.Request) (map[stri
 			"\nBe careful this code expire today."
 		return nil, SendMail(mes, []string{email})
 	} else {
-		ID, e := dbfuncs.CreateUser(user)
+		ID, e := user.Create()
 		if e != nil {
 			return nil, e
 		}
@@ -234,7 +234,8 @@ func (app *Application) SaveNewPassword(w http.ResponseWriter, r *http.Request) 
 	if e != nil {
 		return errors.New("the new password do not created")
 	}
-	return dbfuncs.ChangeUser(&dbfuncs.Users{ID: dbfuncs.FromINT64ToINT(res[0]), Password: string(password)})
+	user := &dbfuncs.User{ID: dbfuncs.FromINT64ToINT(res[0]), Password: string(password)}
+	return user.Change()
 }
 
 // ResetPassword send on email message code to reset password

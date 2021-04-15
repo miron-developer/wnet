@@ -89,7 +89,7 @@ func (room *ChatRoom) Work(app *Application) {
 
 			if msg.MsgType == ChatMessageType {
 				body := dbfuncs.MakeArrFromStruct(msg.Body)
-				chatMsg := &dbfuncs.Messages{
+				chatMsg := &dbfuncs.Message{
 					UnixDate:     int(time.Now().Unix()),
 					Body:         body[0].(string),
 					SenderUserID: addresserID,
@@ -98,7 +98,7 @@ func (room *ChatRoom) Work(app *Application) {
 				if room.Type == "group" {
 					chatMsg.ReceiverGroupID = receiverID
 				}
-				if e := dbfuncs.CreateMessage(chatMsg); e != nil {
+				if e := chatMsg.Create(); e != nil {
 					addresser.Conn.WriteJSON(WSMessage{AddresserID: "server", ReceiverID: strconv.Itoa(addresser.ID),
 						Body: "something wrong: " + e.Error(), MsgType: ErrorType})
 				}

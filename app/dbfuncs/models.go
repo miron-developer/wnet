@@ -1,7 +1,7 @@
 package dbfuncs
 
-// Users - table
-type Users struct {
+// User - table
+type User struct {
 	ID        int    `json:"id"`
 	Type      string `json:"type"`
 	NickName  string `json:"nickname"`
@@ -18,8 +18,8 @@ type Users struct {
 	Password  string
 }
 
-// Groups - table
-type Groups struct {
+// Group - table
+type Group struct {
 	ID           int    `json:"id"`
 	Type         string `json:"type"`
 	Title        string `json:"title"`
@@ -31,15 +31,15 @@ type Groups struct {
 	OwnerUserID  int    `json:"ownerUserID"`
 }
 
-// Sessions - table
-type Sessions struct {
+// Session - table
+type Session struct {
 	ID     string
 	Expire string
 	UserID int
 }
 
-// Posts - table
-type Posts struct {
+// Post - table
+type Post struct {
 	ID           int    `json:"id"`
 	Type         string `json:"type"`
 	Title        string `json:"title"`
@@ -51,8 +51,8 @@ type Posts struct {
 	GroupID      int    `json:"groupID"`
 }
 
-// Messages - table
-type Messages struct {
+// Message - table
+type Message struct {
 	ID              int    `json:"id"`
 	UnixDate        int    `json:"datetime"`
 	MessageType     string `json:"messageType"`
@@ -62,8 +62,16 @@ type Messages struct {
 	ReceiverGroupID int    `json:"receiverGroupID"`
 }
 
-// Events - table
-type Events struct {
+// Chats - table
+type Chats struct {
+	ID              int `json:"id"`
+	SenderUserID    int `json:"senderUserID"`
+	ReceiverUserID  int `json:"receiverUserID"`
+	ReceiverGroupID int `json:"receiverGroupID"`
+}
+
+// Event - table
+type Event struct {
 	ID       int    `json:"id"`
 	Type     string `json:"type"`
 	Title    string `json:"title"`
@@ -73,35 +81,38 @@ type Events struct {
 	GroupID  int    `json:"groupID"`
 }
 
-// EventAnswers - table
-type EventAnswers struct {
+// EventAnswer - table
+type EventAnswer struct {
 	ID      int    `json:"id"`
 	Answer  string `json:"answer"`
 	UserID  int    `json:"userID"`
 	EventID int    `json:"eventID"`
 }
 
-// Relations - table
-type Relations struct {
-	ID             int    `json:"id"`
-	Value          string `json:"value"`
-	SenderUserID   int    `json:"senderUserID"`
-	ReceiverUserID int    `json:"receiverUserID"`
+// Relation - table
+type Relation struct {
+	ID              int    `json:"id"`
+	Value           string `json:"value"`
+	SenderUserID    int    `json:"senderUserID"`
+	SenderGroupID   int    `json:"senderGroupID"`
+	ReceiverUserID  int    `json:"receiverUserID"`
+	ReceiverGroupID int    `json:"receiverGroupID"`
 }
 
 // Media - table
 type Media struct {
 	ID        int    `json:"id"`
 	Title     string `json:"title"`
-	MediaType string `json:"mediaType"`
+	MediaType string `json:"type"`
 	UnixDate  int    `json:"datetime"`
 	Source    string `json:"src"`
+	Preview   string `json:"preview"`
 	UserID    int    `json:"userID"`
 	GroupID   int    `json:"groupID"`
 }
 
-// Comments - table
-type Comments struct {
+// Comment - table
+type Comment struct {
 	ID          int    `json:"id"`
 	Body        string `json:"body"`
 	UnixDate    int    `json:"datetime"`
@@ -113,8 +124,8 @@ type Comments struct {
 	MediaID     int    `json:"mediaID"`
 }
 
-// Notifications - table
-type Notifications struct {
+// Notification - table
+type Notification struct {
 	ID               int    `json:"id"`
 	UnixDate         int    `json:"datetime"`
 	NotificationType string `json:"notificationType"`
@@ -127,8 +138,8 @@ type Notifications struct {
 	MediaID          int    `json:"mediaID"`
 }
 
-// Likes - table
-type Likes struct {
+// Like - table
+type Like struct {
 	ID        int `json:"id"`
 	UserID    int `json:"userID"`
 	PostID    int `json:"postID"`
@@ -136,10 +147,11 @@ type Likes struct {
 	MediaID   int `json:"mediaID"`
 }
 
-// ClippedFiles - table
-type ClippedFiles struct {
+// ClippedFile - table
+type ClippedFile struct {
 	ID        int    `json:"id"`
 	FileType  string `json:"fileType"`
+	Source    string `json:"src"`
 	UserID    int    `json:"userID"`
 	PostID    int    `json:"postID"`
 	CommentID int    `json:"commentID"`

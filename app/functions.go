@@ -42,7 +42,7 @@ func (app *Application) XCSSOther(data string) error {
 		return nil
 	}
 
-	rg := regexp.MustCompile(`^[\w\d@#',_\s\p{Cyrillic}]+$`)
+	rg := regexp.MustCompile(`^[\w\d@#'?!.():/,-_\s\p{Cyrillic}]+$`)
 	if !rg.MatchString(data) {
 		return errors.New("wrong data")
 	}
@@ -84,7 +84,8 @@ func getUserIDfromReq(w http.ResponseWriter, r *http.Request) int {
 	}
 
 	// update cooks & sess
-	dbfuncs.ChangeSession(&dbfuncs.Sessions{ID: sesID, Expire: TimeExpire(sessionExpire)})
+	ses := &dbfuncs.Session{ID: sesID, Expire: TimeExpire(sessionExpire)}
+	ses.Change()
 	setCookie(w, sesID, int(sessionExpire/timeSecond))
 	return dbfuncs.FromINT64ToINT(userID[0])
 }

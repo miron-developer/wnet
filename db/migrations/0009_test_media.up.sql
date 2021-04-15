@@ -5,6 +5,7 @@ INSERT INTO Media VALUES(
     "photo",
     1588670115000,
     "/img/default-avatar.png",
+    "",
     1,
     null
 );
@@ -16,6 +17,7 @@ INSERT INTO Media VALUES(
     "video",
     1588670115000,
     "/video-ex.mp4",
+    "/img/default-avatar.png",
     1,
     null
 );
@@ -27,17 +29,19 @@ INSERT INTO Media VALUES(
     "photo",
     1588670115000,
     "/img/default-avatar.png",
+    "",
     null,
     1
 );
 
--- my group photo
+-- my group video
 INSERT INTO Media VALUES(
     null,
     "test media",
     "video",
     1588670115000,
     "/video-ex.mp4",
+    "/img/default-avatar.png",
     null,
     1
 );
@@ -49,6 +53,7 @@ INSERT INTO Media VALUES(
     "photo",
     1588670115000,
     "/img/default-avatar.png",
+    "",
     2,
     null
 );
@@ -60,6 +65,7 @@ INSERT INTO Media VALUES(
     "video",
     1588670115000,
     "/video-ex.mp4",
+    "/img/default-avatar.png",
     2,
     null
 );
