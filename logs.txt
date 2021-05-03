@@ -1,4 +1,4 @@
-[34m[INFO][0m	2021/05/04 01:14:30 init.go:36: loggers is done!
-[34m[INFO][0m	2021/05/04 01:14:32 init.go:39: db completed!
-[34m[INFO][0m	2021/05/04 01:14:32 main.go:103: initialization completed!
-[34m[INFO][0m	2021/05/04 01:14:32 main.go:127: server listening on ports 4330(HTTPS) and 8080(HTTP)
+[34m[INFO][0m	2021/05/04 01:24:14 init.go:36: loggers is done!
+[34m[INFO][0m	2021/05/04 01:24:16 init.go:39: db completed!
+[34m[INFO][0m	2021/05/04 01:24:16 main.go:103: initialization completed!
+[34m[INFO][0m	2021/05/04 01:24:16 main.go:127: server listening on ports 4330(HTTPS) and 8080(HTTP)
