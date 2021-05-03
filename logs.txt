@@ -1,6 +1,4 @@
-[34m[INFO][0m	2021/05/04 01:08:43 init.go:36: loggers is done!
-[34m[INFO][0m	2021/05/04 01:08:47 init.go:39: db completed!
-[34m[INFO][0m	2021/05/04 01:08:47 main.go:103: initialization completed!
-[34m[INFO][0m	2021/05/04 01:08:47 main.go:127: server listening on ports 4330(HTTPS) and 8080(HTTP)
-[31m[ERROR][0m	2021/05/04 01:08:50 server.go:3054: http: TLS handshake error from [::1]:42930: remote error: tls: unknown certificate
-[34m[INFO][0m	2021/05/04 01:08:50 handlers.go:34: GET: '/'
+[34m[INFO][0m	2021/05/04 01:14:30 init.go:36: loggers is done!
+[34m[INFO][0m	2021/05/04 01:14:32 init.go:39: db completed!
+[34m[INFO][0m	2021/05/04 01:14:32 main.go:103: initialization completed!
+[34m[INFO][0m	2021/05/04 01:14:32 main.go:127: server listening on ports 4330(HTTPS) and 8080(HTTP)
