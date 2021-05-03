@@ -1,3 +1,4 @@
+// +heroku goVersion go1.13
 module wnet
 
 go 1.13
