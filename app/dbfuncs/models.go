@@ -62,8 +62,8 @@ type Message struct {
 	ReceiverGroupID int    `json:"receiverGroupID"`
 }
 
-// Chats - table
-type Chats struct {
+// Chat - table
+type Chat struct {
 	ID              int `json:"id"`
 	SenderUserID    int `json:"senderUserID"`
 	ReceiverUserID  int `json:"receiverUserID"`

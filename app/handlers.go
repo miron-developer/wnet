@@ -122,6 +122,11 @@ func (app *Application) HEvents(w http.ResponseWriter, r *http.Request) {
 	app.HApi(w, r, app.Events)
 }
 
+// Hmessages for handle '/api/messages'
+func (app *Application) Hmessages(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Messages)
+}
+
 // HNotification for handle '/api/notification'
 func (app *Application) HNotification(w http.ResponseWriter, r *http.Request) {
 	app.HApi(w, r, app.Notification)
@@ -212,34 +217,6 @@ func (app *Application) Hcomments(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Hmessages for handle '/api/messages'
-func (app *Application) Hmessages(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		userID := getUserIDfromReq(w, r)
-
-		if userID == -1 {
-			return
-		}
-
-		first, count := getLimit(r)
-		receiverID := r.FormValue("nickname")
-		addresserID := r.FormValue("username")
-		op := dbfuncs.DoSQLOption("senderID=? AND receiverID=? OR senderID=? AND receiverID=?", "datetime(date) DESC", "?,?", addresserID, receiverID, receiverID, addresserID, first, count)
-
-		generalGet(
-			w,
-			r,
-			dbfuncs.SQLSelectParams{
-				Table:   "Messages",
-				What:    "*",
-				Options: op,
-				Joins:   nil,
-			},
-			dbfuncs.Message{},
-		)
-	}
-}
-
 // HonlineUsers for handle '/api/onlines'
 func (app *Application) HonlineUsers(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
@@ -255,7 +232,9 @@ func (app *Application) HonlineUsers(w http.ResponseWriter, r *http.Request) {
 
 // HGetFile save one file
 func (app *Application) HGetFile(w http.ResponseWriter, r *http.Request) {
-	app.HApi(w, r, app.GetFile)
+	if r.Method == "GET" {
+		app.GetFile(w, r)
+	}
 }
 
 /* --------------------------------------------- Logical ---------------------------------- */
@@ -271,16 +250,14 @@ func (app *Application) HCheckUserLogged(w http.ResponseWriter, r *http.Request)
 
 		userID := getUserIDfromReq(w, r)
 		if userID == -1 {
-			data.Err = "Not logged"
+			data.Err = "not logged"
 			doJS(w, data)
 			return
 		}
 
-		// if app.findUserByID(userID) == nil {
-		// 	data.Err = "you already logged"
-		// 	doJS(w, data)
-		// 	return
-		// }
+		u := dbfuncs.User{ID: userID, Status: "online"}
+		go u.Change()
+
 		data.Data = map[string]int{"id": userID}
 		doJS(w, data)
 	}
@@ -396,72 +373,6 @@ func (app *Application) HLogout(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ------------------------------------------- Profile ------------------------------------------
-
-// HChangeAvatar for handle '/profile/change-avatar'
-func (app *Application) HChangeAvatar(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			return
-		}
-
-		data := map[string]interface{}{"msg": "ok"}
-
-		newPhoto, e := uploadFile("avatar", "img", r)
-		if e != nil {
-			data["msg"] = e.Error()
-			doJS(w, data)
-			return
-		}
-		data["link"] = newPhoto
-
-		user := &dbfuncs.User{ID: userID, Avatar: newPhoto}
-		if e = user.Change(); e != nil {
-			data["msg"] = e.Error()
-		}
-		doJS(w, data)
-	}
-}
-
-// HChangeData for handle '/profile/change-profile'
-func (app *Application) HChangeData(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			return
-		}
-
-		data := map[string]interface{}{"msg": "ok"}
-		e := checkEmailAndNick(false, r.PostFormValue("email"), r.PostFormValue("nick"))
-		if e != nil {
-			data["msg"] = e.Error()
-			doJS(w, data)
-			return
-		}
-
-		if app.XCSSOther(r.PostFormValue("nick")) != nil ||
-			app.XCSSOther(r.PostFormValue("firstName")) != nil ||
-			app.XCSSOther(r.PostFormValue("lastName")) != nil {
-			data["msg"] = "wrong data"
-			doJS(w, data)
-			return
-		}
-
-		user := &dbfuncs.User{ID: userID, NickName: r.PostFormValue("nick"), Email: r.PostFormValue("email"),
-			FirstName: r.PostFormValue("firstName"), LastName: r.PostFormValue("lastName")}
-		age, e := strconv.Atoi(r.PostFormValue("age"))
-		if e == nil {
-			user.Age = age
-		}
-
-		if e = user.Change(); e != nil {
-			data["msg"] = e.Error()
-		}
-		doJS(w, data)
-	}
-}
-
 // ------------------------------------------- Change ------------------------------------------
 
 // HConfirmSettings save user settings
@@ -568,6 +479,11 @@ func (app *Application) HSaveEventAnswer(w http.ResponseWriter, r *http.Request)
 	app.HSaves(w, r, app.CreateEventAnswer)
 }
 
+// HSaveChat save chat
+func (app *Application) HSaveChat(w http.ResponseWriter, r *http.Request) {
+	app.HSaves(w, r, app.CreateChat)
+}
+
 // HSaveComment save comment
 func (app *Application) HSaveComment(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
@@ -604,30 +520,5 @@ func (app *Application) HSaveComment(w http.ResponseWriter, r *http.Request) {
 
 // HSaveMessage create message
 func (app *Application) HSaveMessage(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			return
-		}
-
-		data := API_RESPONSE{
-			Err:  "ok",
-			Data: "",
-		}
-
-		receiverID, e := strconv.Atoi(r.PostFormValue("receiverID"))
-		if e != nil {
-			data.Err = "not have receiver"
-			doJS(w, data)
-			return
-		}
-
-		m := dbfuncs.Message{UnixDate: int(time.Now().Unix() * 1000), Body: r.PostFormValue("body"),
-			SenderUserID: userID, ReceiverUserID: receiverID}
-
-		if e := m.Create(); e != nil {
-			data.Err = "not save message"
-		}
-		doJS(w, data)
-	}
+	app.HSaves(w, r, app.CreateMessage)
 }

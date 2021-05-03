@@ -53,13 +53,6 @@ func routes(app *app.Application) http.Handler {
 	signMux.HandleFunc("/oauth/in", app.HSignIn)
 	appMux.Handle("/sign/", http.StripPrefix("/sign", signMux))
 
-	// // profile
-	// profileMux := http.NewServeMux()
-	// profileMux.HandleFunc("/change-avatar", app.HChangeAvatar)
-	// profileMux.HandleFunc("/change-profile", app.HChangeData)
-	// profileMux.HandleFunc("/", app.Hindex)
-	// appMux.Handle("/profile/", http.StripPrefix("/profile", profileMux))
-
 	// edit
 	editMux := http.NewServeMux()
 	editMux.HandleFunc("/settings", app.HChangeSettings)
@@ -79,8 +72,9 @@ func routes(app *app.Application) http.Handler {
 	saveMux.HandleFunc("/event", app.HSaveEvent)
 	saveMux.HandleFunc("/rlsh", app.HSaveRelation)
 	saveMux.HandleFunc("/answer", app.HSaveEventAnswer)
-
+	saveMux.HandleFunc("/chat", app.HSaveChat)
 	saveMux.HandleFunc("/message", app.HSaveMessage)
+
 	saveMux.HandleFunc("/comment", app.HSaveComment)
 	appMux.Handle("/s/", http.StripPrefix("/s", saveMux))
 

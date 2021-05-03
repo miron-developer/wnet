@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS Messages (
 	FOREIGN KEY (receiverUserID) REFERENCES Users(id) ON DELETE CASCADE,
 	FOREIGN KEY (receiverGroupID) REFERENCES Groups(id) ON DELETE CASCADE,
 	CHECK(
-        type IN("audio", "video", "text", "file", "photo")
+        type IN("audio", "video", "text", "file", "photo", "image")
     )
 );
 

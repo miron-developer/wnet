@@ -108,9 +108,9 @@ func (p *Post) Create() (int, error) {
 }
 
 // Create create one Message
-func (msg *Message) Create() error {
-	if msg.Body == "" || msg.UnixDate == 0 || msg.MessageType == "" || msg.SenderUserID == 0 {
-		return errors.New("n/d")
+func (msg *Message) Create() (int, error) {
+	if (msg.Body == "" && msg.MessageType == "text") || msg.UnixDate == 0 || msg.MessageType == "" || msg.SenderUserID == 0 {
+		return -1, errors.New("n/d")
 	}
 
 	params := SQLInsertParams{
@@ -121,14 +121,18 @@ func (msg *Message) Create() error {
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{msg.ReceiverUserID, msg.ReceiverGroupID})
 	params.Values = params.Values[1:]
 
-	_, e := insertSQL(params)
-	return e
+	res, e := insertSQL(params)
+	if e != nil {
+		return -1, e
+	}
+	ID, e := res.LastInsertId()
+	return int(ID), e
 }
 
 // Create create one Chat
-func (c *Chats) Create() error {
+func (c *Chat) Create() (int, error) {
 	if c.SenderUserID == 0 {
-		return errors.New("n/d")
+		return -1, errors.New("n/d")
 	}
 
 	params := SQLInsertParams{
@@ -138,8 +142,26 @@ func (c *Chats) Create() error {
 	}
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{c.ReceiverUserID, c.ReceiverGroupID})
 	params.Values = params.Values[1:]
-	_, e := insertSQL(params)
-	return e
+
+	op := DoSQLOption("senderUserID=? AND receiverGroupID=?", "", "", params.Values...)
+	if strings.Split(params.Datas, ",")[2] != "null" {
+		op.Where = strings.Replace(op.Where, "Group", "User", 1)
+	}
+
+	if id, e := GetOneFrom(SQLSelectParams{
+		Table:   "Chats",
+		What:    "id",
+		Options: op,
+	}); e == nil && id != nil {
+		return FromINT64ToINT(id[0]), nil
+	}
+
+	res, e := insertSQL(params)
+	if e != nil {
+		return -1, e
+	}
+	ID, e := res.LastInsertId()
+	return int(ID), e
 }
 
 // Create create one Events
@@ -316,7 +338,7 @@ func (f *ClippedFile) Create() (int, error) {
 
 	params := SQLInsertParams{
 		Table:  "Files",
-		Datas:  "null,?,?,?,?,?",
+		Datas:  "null,?,?,?,?,?,?",
 		Values: MakeArrFromStruct(*f),
 	}
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{f.PostID, f.CommentID, f.MessageID})

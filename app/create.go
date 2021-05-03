@@ -402,3 +402,57 @@ func (app *Application) CreateEventAnswer(w http.ResponseWriter, r *http.Request
 	}
 	return votes[0], nil
 }
+
+func (app *Application) CreateChat(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	userID := getUserIDfromReq(w, r)
+	if userID == -1 {
+		return nil, errors.New("not logged")
+	}
+
+	ID, e := strconv.Atoi(r.PostFormValue("id"))
+	if e != nil {
+		return nil, errors.New("wrong id")
+	}
+
+	chat := &dbfuncs.Chat{SenderUserID: userID, ReceiverUserID: ID}
+	typeChat := r.PostFormValue("type")
+	if typeChat == "group" {
+		chat.ReceiverUserID = 0
+		chat.ReceiverGroupID = ID
+	}
+
+	id, e := chat.Create()
+	if e != nil {
+		return -1, errors.New("not created chat")
+	}
+	return []int{id}, nil
+}
+
+func (app *Application) CreateMessage(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	userID := getUserIDfromReq(w, r)
+	if userID == -1 {
+		return nil, errors.New("not logged")
+	}
+
+	ID, e := strconv.Atoi(r.PostFormValue("id"))
+	if e != nil {
+		return nil, errors.New("wrong id")
+	}
+
+	m := dbfuncs.Message{
+		UnixDate: int(time.Now().Unix() * 1000), Body: r.PostFormValue("body"),
+		SenderUserID: userID, ReceiverUserID: ID, MessageType: r.PostFormValue("messageType"),
+	}
+	typeChat := r.PostFormValue("type")
+	if typeChat == "group" {
+		m.ReceiverUserID = 0
+		m.ReceiverGroupID = ID
+	}
+
+	id, e := m.Create()
+	if e != nil {
+		return -1, errors.New("not created message")
+	}
+
+	return []int{id}, nil
+}

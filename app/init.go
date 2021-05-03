@@ -13,7 +13,7 @@ import (
 
 // Application this is app struct and items
 type Application struct {
-	m                   sync.Mutex // mutex
+	m                   sync.Mutex
 	ELog                *log.Logger
 	ILog                *log.Logger
 	Port                string
@@ -22,9 +22,9 @@ type Application struct {
 	UsersCode           map[string]*dbfuncs.User
 	RestoreCode         map[string]string
 	ChangeCode          map[string]*dbfuncs.User
-	OnlineUsers         map[int]*WSUser // online users
-	Messages            chan *WSMessage
-	ChatRooms           map[string]*ChatRoom
+	OnlineUsers         map[int]*WSUser
+	WSMessages          chan *WSMessage
+	// ChatRooms           map[string]*ChatRoom
 }
 
 // InitProg initialise
@@ -48,7 +48,7 @@ func InitProg() *Application {
 		RestoreCode:         map[string]string{},
 		ChangeCode:          map[string]*dbfuncs.User{},
 		OnlineUsers:         map[int]*WSUser{},
-		Messages:            make(chan *WSMessage),
-		ChatRooms:           map[string]*ChatRoom{},
+		WSMessages:          make(chan *WSMessage),
+		// ChatRooms:           map[string]*ChatRoom{},
 	}
 }

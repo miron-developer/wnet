@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/smtp"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"wnet/app/dbfuncs"
@@ -185,26 +186,31 @@ func (app *Application) SignIn(w http.ResponseWriter, r *http.Request) (int, err
 	}
 	ID := dbfuncs.FromINT64ToINT(res[0])
 
-	// if app.findUserByID(ID) != nil {
-	// 	return -1, errors.New("User already is online!")
-	// }
+	if app.findUserByID(ID) != nil {
+		return -1, errors.New("User already is online!")
+	}
 	return ID, SessionStart(w, r, email, ID)
 }
 
 // Logout user
 func (app *Application) Logout(w http.ResponseWriter, r *http.Request) error {
-	cookie, e := r.Cookie(cookieName)
-	if e != nil || cookie.Value == "" {
-		return e
+	id := getUserIDfromReq(w, r)
+	if id == -1 {
+		return errors.New("not logged")
 	}
 
-	if e = dbfuncs.DeleteByParams(dbfuncs.SQLDeleteParams{
+	if e := dbfuncs.DeleteByParams(dbfuncs.SQLDeleteParams{
 		Table:   "Sessions",
-		Options: dbfuncs.DoSQLOption("id = '"+cookie.Value+"'", "", ""),
+		Options: dbfuncs.DoSQLOption("userID = ?", "", "", id),
 	}); e != nil {
 		return errors.New("Not logouted")
 	}
 
+	u := dbfuncs.User{ID: id, Status: strconv.Itoa(int(time.Now().Unix() * 1000))}
+	u.Change()
+	app.m.Lock()
+	delete(app.OnlineUsers, id)
+	app.m.Unlock()
 	setCookie(w, "", -1)
 	return nil
 }

@@ -1,8 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -405,6 +407,44 @@ func (app *Application) Events(w http.ResponseWriter, r *http.Request) (interfac
 	), nil
 }
 
+func (app *Application) Messages(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	ID, e := getUserID(w, r, "")
+	if e != nil {
+		return nil, errors.New("wrong id")
+	}
+
+	first, count := getLimit(r)
+	receiverID := r.FormValue("id")
+	chatType := r.FormValue("type")
+
+	op := dbfuncs.DoSQLOption(
+		"senderUserID=? AND receiverGroupID=?",
+		"datetime(datetime) DESC",
+		"?,?",
+		ID, receiverID,
+	)
+	if chatType == "user" {
+		op.Where = "senderUserID=? AND receiverUserID=? OR senderUserID=? AND receiverUserID=?"
+		op.Args = append(op.Args, receiverID, ID)
+	}
+	op.Args = append(op.Args, first, count)
+
+	userJ := userJoin("m.senderUserID = u.id")
+	fileJ := dbfuncs.DoSQLJoin(dbfuncs.LOJOINQ, "Files AS f", "f.messageID=m.id")
+	return generalGet(
+		w,
+		r,
+		dbfuncs.SQLSelectParams{
+			Table:   "Messages AS m",
+			What:    "m.*, u.ava, u.nName, u.status, f.src",
+			Options: op,
+			Joins:   []dbfuncs.SQLJoin{userJ, fileJ},
+		},
+		dbfuncs.Message{},
+		"avatar", "nickname", "status", "src",
+	), nil
+}
+
 func (app *Application) Chats(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	ID, e := getUserID(w, r, r.FormValue("id"))
 	if e != nil {
@@ -438,10 +478,10 @@ func (app *Application) Chats(w http.ResponseWriter, r *http.Request) (interface
 		Table: "Chats c",
 		What:  "c.*, u.ava, u.nName, u.status, g.ava, g.title",
 		Options: dbfuncs.DoSQLOption(
-			"senderUserID=?",
+			"(c.senderUserID = ? AND c.receiverUserID != ?) OR (c.senderUserID = ? AND c.receiverUserID ISNULL)",
 			"",
 			"?,?",
-			ID, first, count,
+			ID, ID, ID, first, count,
 		),
 		Joins: []dbfuncs.SQLJoin{userJ, groupJ},
 	}
@@ -450,7 +490,7 @@ func (app *Application) Chats(w http.ResponseWriter, r *http.Request) (interface
 		mainQ,
 		[]dbfuncs.SQLSelectParams{messageBodyQ, messageDatetimeQ},
 		[]string{"userAvatar", "nickname", "status", "groupAvatar", "groupTitle", "msgBody", "msgDatetime"},
-		dbfuncs.Chats{},
+		dbfuncs.Chat{},
 	)
 }
 
@@ -499,7 +539,7 @@ func (app *Application) Notification(w http.ResponseWriter, r *http.Request) (in
 	}
 
 	mainQ := dbfuncs.SQLSelectParams{
-		Table:   "Notifications as n",
+		Table:   "Notifications AS n",
 		What:    "n.*",
 		Options: dbfuncs.DoSQLOption("n.id=?", "", "", ID),
 	}
@@ -706,14 +746,14 @@ func (app *Application) Event(w http.ResponseWriter, r *http.Request) (interface
 }
 
 // GetFile save one file
-func (app *Application) GetFile(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+func (app *Application) GetFile(w http.ResponseWriter, r *http.Request) {
 	file, content, e := dbfuncs.GetFileFromDrive(strings.Split(r.URL.Path, "/")[2])
 	if e != nil {
-		return nil, errors.New("wrong id")
+		return
 	}
 
-	return map[string]interface{}{
-		"type":    file.MimeType,
-		"content": content,
-	}, nil
+	ftype := http.DetectContentType(content[:512])
+	w.Header().Set("Content-Disposition", "attachment; filename="+file.Name)
+	w.Header().Set("Content-Type", ftype)
+	io.Copy(w, bytes.NewReader(content))
 }
