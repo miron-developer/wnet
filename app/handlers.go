@@ -64,6 +64,11 @@ func (app *Application) CreateWSUser(w http.ResponseWriter, r *http.Request) {
 	go app.OnlineUsers[user.ID].Pinger()
 }
 
+// HIndex handle all GETs
+func (app *Application) HIndex(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("this is server-api"))
+}
+
 /* ------------------------------------------- API ------------------------------------------------ */
 
 func (app *Application) HApi(w http.ResponseWriter, r *http.Request, f func(w http.ResponseWriter, r *http.Request) (interface{}, error)) {
@@ -122,8 +127,8 @@ func (app *Application) HEvents(w http.ResponseWriter, r *http.Request) {
 	app.HApi(w, r, app.Events)
 }
 
-// Hmessages for handle '/api/messages'
-func (app *Application) Hmessages(w http.ResponseWriter, r *http.Request) {
+// HMessages for handle '/api/messages'
+func (app *Application) HMessages(w http.ResponseWriter, r *http.Request) {
 	app.HApi(w, r, app.Messages)
 }
 

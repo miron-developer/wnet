@@ -12,9 +12,11 @@ import (
 
 func routes(app *app.Application) http.Handler {
 	appMux := http.NewServeMux()
+	appMux.HandleFunc("/", app.HIndex)
 
 	// api routes
 	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("/", app.HIndex)
 	apiMux.HandleFunc("/news", app.HNews)
 	apiMux.HandleFunc("/publications", app.HPublications)
 	apiMux.HandleFunc("/notifications", app.HNotifications)
@@ -28,10 +30,10 @@ func routes(app *app.Application) http.Handler {
 	apiMux.HandleFunc("/event", app.HEvent)
 	apiMux.HandleFunc("/user", app.HUser)
 	apiMux.HandleFunc("/group", app.HGroup)
+	apiMux.HandleFunc("/messages", app.HMessages)
 
 	apiMux.HandleFunc("/posts", app.Hposts)
 	apiMux.HandleFunc("/comments", app.Hcomments)
-	apiMux.HandleFunc("/messages", app.Hmessages)
 	apiMux.HandleFunc("/online", app.HonlineUsers)
 	appMux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
@@ -42,6 +44,7 @@ func routes(app *app.Application) http.Handler {
 
 	// sign
 	signMux := http.NewServeMux()
+	signMux.HandleFunc("/", app.HIndex)
 	signMux.HandleFunc("/up", app.HSignUp)
 	signMux.HandleFunc("/s/", app.HSaveUser)
 	signMux.HandleFunc("/in", app.HSignIn)
@@ -55,6 +58,7 @@ func routes(app *app.Application) http.Handler {
 
 	// edit
 	editMux := http.NewServeMux()
+	editMux.HandleFunc("/", app.HIndex)
 	editMux.HandleFunc("/settings", app.HChangeSettings)
 	editMux.HandleFunc("/settings/c", app.HConfirmSettings)
 	editMux.HandleFunc("/user", app.HChangeProfile)
@@ -63,6 +67,7 @@ func routes(app *app.Application) http.Handler {
 
 	// save
 	saveMux := http.NewServeMux()
+	saveMux.HandleFunc("/", app.HIndex)
 	saveMux.HandleFunc("/group", app.HSaveGroup)
 	saveMux.HandleFunc("/post", app.HSavePost)
 	saveMux.HandleFunc("/file", app.HSaveFile)
