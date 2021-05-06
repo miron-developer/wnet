@@ -127,11 +127,11 @@ func main() {
 	app.ILog.Printf("server listening on ports %v(HTTPS) and %v(HTTP)", app.Port, "8080")
 
 	// localhost side
-	go func() {
-		app.ELog.Println(http.ListenAndServe(":8080", http.HandlerFunc(nil)))
-	}()
-	app.ELog.Fatal(srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"))
+	// go func() {
+	// 	app.ELog.Println(http.ListenAndServe(":8080", http.HandlerFunc(nil)))
+	// }()
+	// app.ELog.Fatal(srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"))
 
 	// heroku side
-	// app.ELog.Fatal(srv.ListenAndServe())
+	app.ELog.Fatal(srv.ListenAndServe())
 }
