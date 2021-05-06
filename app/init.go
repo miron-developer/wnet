@@ -19,6 +19,7 @@ type Application struct {
 	Port                string
 	CurrentRequestCount int
 	MaxRequestCount     int
+	IsHeroku            bool
 	UsersCode           map[string]*dbfuncs.User
 	RestoreCode         map[string]string
 	ChangeCode          map[string]*dbfuncs.User
@@ -44,6 +45,7 @@ func InitProg() *Application {
 		Port:                "4330",
 		CurrentRequestCount: 0,
 		MaxRequestCount:     1200,
+		IsHeroku:            false,
 		UsersCode:           map[string]*dbfuncs.User{},
 		RestoreCode:         map[string]string{},
 		ChangeCode:          map[string]*dbfuncs.User{},

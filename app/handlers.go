@@ -19,8 +19,11 @@ func (app *Application) SecureHeaderMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("cross-origin-resource-policy", "cross-origin")
 		w.Header().Set("X-XSS-Protection", "1;mode=block")
 		w.Header().Set("X-Frame-Options", "deny")
-		w.Header().Set("Access-Control-Allow-Origin", "https://wnet-sn.herokuapp.com")
-		// w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		accessOrigin := "http://localhost:3000"
+		if app.IsHeroku {
+			accessOrigin = "https://wnet-sn.herokuapp.com"
+		}
+		w.Header().Set("Access-Control-Allow-Origin", accessOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		next.ServeHTTP(w, r)

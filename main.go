@@ -97,6 +97,7 @@ func main() {
 	app := app.InitProg()
 
 	if port != "" {
+		app.IsHeroku = true
 		app.Port = port
 	}
 
@@ -126,12 +127,14 @@ func main() {
 	fmt.Printf("server listening on ports %v(HTTPS) and %v(HTTP)\n", app.Port, "8080")
 	app.ILog.Printf("server listening on ports %v(HTTPS) and %v(HTTP)", app.Port, "8080")
 
-	// localhost side
-	// go func() {
-	// 	app.ELog.Println(http.ListenAndServe(":8080", http.HandlerFunc(nil)))
-	// }()
-	// app.ELog.Fatal(srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"))
-
-	// heroku side
-	app.ELog.Fatal(srv.ListenAndServe())
+	if app.IsHeroku {
+		// heroku side
+		app.ELog.Fatal(srv.ListenAndServe())
+	} else {
+		// localhost side
+		go func() {
+			app.ELog.Println(http.ListenAndServe(":8080", http.HandlerFunc(nil)))
+		}()
+		app.ELog.Fatal(srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem"))
+	}
 }
