@@ -457,7 +457,7 @@ func (app *Application) Chats(w http.ResponseWriter, r *http.Request) (interface
 		`(c.senderUserID = m.senderUserID AND c.receiverUserID = m.receiverUserID) OR
 		(c.senderUserID = m.receiverUserID AND c.receiverUserID = m.senderUserID) OR
 		(c.senderUserID = m.senderUserID AND c.receiverGroupID = m.receiverGroupID)`,
-		"",
+		"m.datetime DESC",
 		"?",
 		1,
 	)

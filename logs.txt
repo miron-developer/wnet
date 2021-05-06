@@ -1,35 +1,28 @@
-[34m[INFO][0m	2021/05/06 19:09:55 init.go:37: loggers is done!
-[34m[INFO][0m	2021/05/06 19:09:57 init.go:40: db completed!
-[34m[INFO][0m	2021/05/06 19:09:57 main.go:104: initialization completed!
-[34m[INFO][0m	2021/05/06 19:09:57 main.go:128: server listening on ports 4330(HTTPS) and 8080(HTTP)
-[31m[ERROR][0m	2021/05/06 19:10:01 server.go:3054: http: TLS handshake error from [::1]:35160: remote error: tls: unknown certificate
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: POST: '/sign/status'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/user?id=1'
-[31m[ERROR][0m	2021/05/06 19:10:01 server.go:3054: http: TLS handshake error from [::1]:35168: remote error: tls: unknown certificate
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/ws/'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notifications?from=0&step=10'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/news?from=0&step=20'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=1&type=1'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=2&type=2'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=3&type=3'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=4&type=4'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=5&type=10'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=6&type=11'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=7&type=12'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=8&type=13'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=9&type=20'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/notification?id=10&type=21'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=16'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=1'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=2'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=3'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=4'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=5'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=6'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=10'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=11'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/post?id=12'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/event?id=1'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/event?id=3'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/event?id=2'
-[34m[INFO][0m	2021/05/06 19:10:01 handlers.go:38: GET: '/api/event?id=4'
+[34m[INFO][0m	2021/05/07 00:10:04 init.go:37: loggers is done!
+[34m[INFO][0m	2021/05/07 00:10:06 init.go:40: db completed!
+[34m[INFO][0m	2021/05/07 00:10:06 main.go:104: initialization completed!
+[34m[INFO][0m	2021/05/07 00:10:06 main.go:128: server listening on ports 4330(HTTPS) and 8080(HTTP)
+[31m[ERROR][0m	2021/05/07 00:11:41 server.go:3054: http: TLS handshake error from [::1]:43792: remote error: tls: unknown certificate
+[34m[INFO][0m	2021/05/07 00:11:41 handlers.go:38: POST: '/sign/status'
+[34m[INFO][0m	2021/05/07 00:11:41 handlers.go:38: GET: '/api/user?id=2'
+[31m[ERROR][0m	2021/05/07 00:11:41 server.go:3054: http: TLS handshake error from [::1]:43796: remote error: tls: unknown certificate
+[34m[INFO][0m	2021/05/07 00:11:42 handlers.go:38: GET: '/ws/'
+[34m[INFO][0m	2021/05/07 00:11:42 handlers.go:38: GET: '/api/notifications?from=0&step=10'
+[34m[INFO][0m	2021/05/07 00:11:42 handlers.go:38: GET: '/api/messages?id=1&type=user&from=0&step=20'
+[31m[ERROR][0m	2021/05/07 00:11:43 server.go:3054: http: TLS handshake error from [::1]:43830: remote error: tls: unknown certificate
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: POST: '/sign/status'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/user?id=1'
+[31m[ERROR][0m	2021/05/07 00:11:43 server.go:3054: http: TLS handshake error from [::1]:43834: remote error: tls: unknown certificate
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/ws/'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notifications?from=0&step=10'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/messages?id=2&type=user&from=0&step=20'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=1&type=1'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=2&type=2'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=3&type=3'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=4&type=4'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=5&type=10'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=6&type=11'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=7&type=12'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=8&type=13'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=9&type=20'
+[34m[INFO][0m	2021/05/07 00:11:43 handlers.go:38: GET: '/api/notification?id=10&type=21'
