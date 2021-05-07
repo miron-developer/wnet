@@ -99,7 +99,7 @@ func calculateAgeFromDOB(dob string) (int, error) {
 // SignUp check validate, start session + oauth2
 func (app *Application) SignUp(w http.ResponseWriter, r *http.Request) (map[string]interface{}, error) {
 	isOauth2Path := strings.Contains(r.URL.Path, "oauth")
-	email := strings.ToLower(r.PostFormValue("email"))
+	email := strings.Trim(strings.ToLower(r.PostFormValue("email")), " ")
 	pass := r.PostFormValue("password")
 	lname := r.PostFormValue("lastName")
 	fname := r.PostFormValue("firstName")
@@ -163,7 +163,7 @@ func (app *Application) SignUp(w http.ResponseWriter, r *http.Request) (map[stri
 // SignIn check password and login from db and request + oauth2
 func (app *Application) SignIn(w http.ResponseWriter, r *http.Request) (int, error) {
 	isOauth2Path := strings.Contains(r.URL.Path, "oauth")
-	email := r.PostFormValue("email")
+	email := strings.Trim(strings.ToLower(r.PostFormValue("email")), " ")
 	pass := r.PostFormValue("password")
 
 	if e := checkEmailAndNick(true, email, email); e != nil {
@@ -246,7 +246,7 @@ func (app *Application) SaveNewPassword(w http.ResponseWriter, r *http.Request) 
 
 // ResetPassword send on email message code to reset password
 func (app *Application) ResetPassword(w http.ResponseWriter, r *http.Request) error {
-	email := r.PostFormValue("email")
+	email := strings.Trim(strings.ToLower(r.PostFormValue("email")), " ")
 	if e := checkEmailAndNick(true, email, ""); e != nil {
 		return e
 	}
