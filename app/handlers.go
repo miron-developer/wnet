@@ -131,6 +131,11 @@ func (app *Application) HEvents(w http.ResponseWriter, r *http.Request) {
 	app.HApi(w, r, app.Events)
 }
 
+// HComments for handle '/api/comments'
+func (app *Application) HComments(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Comments)
+}
+
 // HMessages for handle '/api/messages'
 func (app *Application) HMessages(w http.ResponseWriter, r *http.Request) {
 	app.HApi(w, r, app.Messages)
@@ -139,6 +144,11 @@ func (app *Application) HMessages(w http.ResponseWriter, r *http.Request) {
 // HNotification for handle '/api/notification'
 func (app *Application) HNotification(w http.ResponseWriter, r *http.Request) {
 	app.HApi(w, r, app.Notification)
+}
+
+// HClippedFiles for handle '/api/files'
+func (app *Application) HClippedFiles(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.ClippedFiles)
 }
 
 // HUser for handle '/api/user/'
@@ -159,6 +169,11 @@ func (app *Application) HPost(w http.ResponseWriter, r *http.Request) {
 // HEvent for handle '/api/event'
 func (app *Application) HEvent(w http.ResponseWriter, r *http.Request) {
 	app.HApi(w, r, app.Event)
+}
+
+// HComment for handle '/api/comment'
+func (app *Application) HComment(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Comment)
 }
 
 // Hposts for handle '/api/posts'
@@ -191,37 +206,6 @@ func (app *Application) Hposts(w http.ResponseWriter, r *http.Request) {
 				Joins:   nil,
 			},
 			dbfuncs.Post{},
-		)
-	}
-}
-
-// Hcomments for handle '/api/comments'
-func (app *Application) Hcomments(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		first, count := getLimit(r)
-		parentID, e := strconv.Atoi(r.FormValue("parentID"))
-		if e != nil {
-			return
-		}
-		commentType := r.FormValue("type")
-		if commentType != "post" && commentType != "comment" && commentType != "user" {
-			return
-		}
-		commentType += "ID"
-		op := dbfuncs.DoSQLOption(commentType+"=?", "", "?,?", parentID, first, count)
-		join := dbfuncs.DoSQLJoin(dbfuncs.INJOINQ, "Users as u", "u.id = c.userID")
-		generalGet(
-			w,
-			r,
-			dbfuncs.SQLSelectParams{
-				Table:   "Comments as c",
-				What:    "c.*, u.photo, u.nickname",
-				Options: op,
-				Joins:   []dbfuncs.SQLJoin{join},
-			},
-			dbfuncs.Comment{},
-			"userPhoto",
-			"nickname",
 		)
 	}
 }

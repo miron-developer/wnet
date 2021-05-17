@@ -407,6 +407,41 @@ func (app *Application) Events(w http.ResponseWriter, r *http.Request) (interfac
 	), nil
 }
 
+func (app *Application) Comments(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	ID, e := strconv.Atoi(r.FormValue("id"))
+	if e != nil {
+		return nil, errors.New("wrong id")
+	}
+
+	userID := getUserIDfromReq(w, r)
+	if userID == -1 {
+		return nil, errors.New("not logged")
+	}
+
+	commentType := r.FormValue("type")
+	if commentType != "post" && commentType != "comment" && commentType != "media" {
+		return nil, errors.New("wrong comment type")
+	}
+	first, count := getLimit(r)
+
+	carmaQ := carmaCountQ("commentID", ID)
+	userJoin := userJoin("u.id = c.userID")
+	likesJoin := likeJoin("l.userID = c.userID AND l.commentID = c.id")
+	mainQ := dbfuncs.SQLSelectParams{
+		Table:   "Comments as c",
+		What:    "c.*, u.nName, u.ava, u.status, l.id IS NOT NULL",
+		Options: dbfuncs.DoSQLOption("c."+commentType+"ID = ?", "c.datetime DESC", "?,?", ID, first, count),
+		Joins:   []dbfuncs.SQLJoin{userJoin, likesJoin},
+	}
+
+	return dbfuncs.GetWithSubqueries(
+		mainQ,
+		[]dbfuncs.SQLSelectParams{carmaQ},
+		[]string{"nickname", "avatar", "status", "isLiked", "carma"},
+		dbfuncs.Comment{},
+	)
+}
+
 func (app *Application) Messages(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	ID, e := getUserID(w, r, "")
 	if e != nil {
@@ -492,6 +527,29 @@ func (app *Application) Chats(w http.ResponseWriter, r *http.Request) (interface
 		[]string{"userAvatar", "nickname", "status", "groupAvatar", "groupTitle", "msgBody", "msgDatetime"},
 		dbfuncs.Chat{},
 	)
+}
+
+func (app *Application) ClippedFiles(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	ID, e := strconv.Atoi(r.FormValue("id"))
+	if e != nil {
+		return nil, errors.New("wrong id")
+	}
+
+	clippedType := r.FormValue("type")
+	if clippedType != "comment" && clippedType != "post" && clippedType != "message" {
+		return nil, errors.New("wrong type")
+	}
+
+	return generalGet(
+		w,
+		r,
+		dbfuncs.SQLSelectParams{
+			Table:   "Files",
+			What:    "*",
+			Options: dbfuncs.DoSQLOption(clippedType+"ID=?", "", "", ID),
+		},
+		dbfuncs.ClippedFile{},
+	), nil
 }
 
 func (app *Application) Notification(w http.ResponseWriter, r *http.Request) (interface{}, error) {
@@ -742,6 +800,35 @@ func (app *Application) Event(w http.ResponseWriter, r *http.Request) (interface
 		[]dbfuncs.SQLSelectParams{eventAnswersGoingQ, eventAnswersNotGoingQ, eventAnswersIDKQ},
 		[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "myVote", "votes0", "votes1", "votes2"},
 		dbfuncs.Event{},
+	)
+}
+
+func (app *Application) Comment(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	ID, e := strconv.Atoi(r.FormValue("id"))
+	if e != nil {
+		return nil, errors.New("wrong id")
+	}
+
+	userID := getUserIDfromReq(w, r)
+	if userID == -1 {
+		return nil, errors.New("not logged")
+	}
+
+	carmaQ := carmaCountQ("commentID", ID)
+	userJoin := userJoin("u.id = c.userID")
+	likesJoin := likeJoin("l.userID = c.userID AND l.commentID = c.id")
+	mainQ := dbfuncs.SQLSelectParams{
+		Table:   "Comments as c",
+		What:    "c.*, u.nName, u.ava, u.status, l.id IS NOT NULL",
+		Options: dbfuncs.DoSQLOption("c.id = ?", "", "", ID),
+		Joins:   []dbfuncs.SQLJoin{userJoin, likesJoin},
+	}
+
+	return dbfuncs.GetWithSubqueries(
+		mainQ,
+		[]dbfuncs.SQLSelectParams{carmaQ},
+		[]string{"nickname", "avatar", "status", "isLiked", "carma"},
+		dbfuncs.Comment{},
 	)
 }
 
