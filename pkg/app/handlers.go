@@ -3,15 +3,8 @@ package app
 import (
 	"errors"
 	"net/http"
-	"strconv"
-	"time"
-	"wnet/app/dbfuncs"
+	"wnet/pkg/orm"
 )
-
-type API_RESPONSE struct {
-	Err  string      `json:"err"`
-	Data interface{} `json:"data"`
-}
 
 // SecureHeaderMiddleware set secure header option
 func (app *Application) SecureHeaderMiddleware(next http.Handler) http.Handler {
@@ -38,7 +31,8 @@ func (app *Application) AccessLogMiddleware(next http.Handler) http.Handler {
 			app.ILog.Printf(logingReq(r))
 			next.ServeHTTP(w, r)
 		} else {
-			app.eHandler(w, errors.New("rate < curl"), "service is overloaded", 529)
+			http.Error(w, "service is overloaded", 529)
+			app.ELog.Println(errors.New("rate < curl"))
 		}
 	})
 }
@@ -171,56 +165,14 @@ func (app *Application) HEvent(w http.ResponseWriter, r *http.Request) {
 	app.HApi(w, r, app.Event)
 }
 
-// HComment for handle '/api/comment'
-func (app *Application) HComment(w http.ResponseWriter, r *http.Request) {
-	app.HApi(w, r, app.Comment)
+// HMedia for handle '/api/media'
+func (app *Application) HMedia(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Media)
 }
 
-// Hposts for handle '/api/posts'
-func (app *Application) Hposts(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		first, count := getLimit(r)
-		tags := r.FormValue("tags")
-		op := dbfuncs.DoSQLOption("tags LIKE '%"+tags+"%'", "datetime(date) DESC", "?,?", first, count)
-
-		if tags == "all" {
-			op.Where = ""
-		} else if tags == "top" {
-			op.Where = ""
-			op.Order += ", carma DESC"
-		} else if tags == "my" {
-			userID := getUserIDfromReq(w, r)
-			if userID != -1 {
-				op.Where = "userID=?"
-				op.Args = append([]interface{}{userID}, op.Args...)
-			}
-		}
-
-		generalGet(
-			w,
-			r,
-			dbfuncs.SQLSelectParams{
-				Table:   "Posts",
-				What:    "*",
-				Options: op,
-				Joins:   nil,
-			},
-			dbfuncs.Post{},
-		)
-	}
-}
-
-// HonlineUsers for handle '/api/onlines'
-func (app *Application) HonlineUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		data := []*WSUser{}
-		for _, v := range app.OnlineUsers {
-			if v.ID > 0 {
-				data = append(data, v)
-			}
-		}
-		doJS(w, data)
-	}
+// HSearch for handle '/api/search'
+func (app *Application) HSearch(w http.ResponseWriter, r *http.Request) {
+	app.HApi(w, r, app.Search)
 }
 
 // HGetFile save one file
@@ -248,7 +200,7 @@ func (app *Application) HCheckUserLogged(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		u := dbfuncs.User{ID: userID, Status: "online"}
+		u := orm.User{ID: userID, Status: "online"}
 		go u.Change()
 
 		data.Data = map[string]int{"id": userID}
@@ -479,36 +431,7 @@ func (app *Application) HSaveChat(w http.ResponseWriter, r *http.Request) {
 
 // HSaveComment save comment
 func (app *Application) HSaveComment(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		userID := getUserIDfromReq(w, r)
-		if userID == -1 {
-			return
-		}
-
-		data := map[string]interface{}{"msg": "ok"}
-		ID, e := strconv.Atoi(r.PostFormValue("id"))
-		if e != nil {
-			data["msg"] = e.Error()
-			doJS(w, data)
-			return
-		}
-
-		c := dbfuncs.Comment{Body: r.PostFormValue("body"), UnixDate: int(time.Now().Unix() * 1000), UserID: userID, PostID: ID}
-		if r.PostFormValue("type") == "comment" {
-			c.PostID = 0
-			c.CommentID = ID
-			parentComment := &dbfuncs.Comment{ID: ID, IsHaveChild: "1"}
-			parentComment.Change()
-		}
-
-		cID, e := c.Create()
-		if e != nil {
-			data["msg"] = e.Error()
-		}
-		c.ID = cID
-		data["comment"] = c
-		doJS(w, data)
-	}
+	app.HSaves(w, r, app.CreateComment)
 }
 
 // HSaveMessage create message

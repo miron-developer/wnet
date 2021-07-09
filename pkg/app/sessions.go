@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-	"wnet/app/dbfuncs"
+	"wnet/pkg/orm"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -37,7 +37,7 @@ func setCookie(w http.ResponseWriter, sid string, expire int) {
 }
 
 func updateStatus(userID int, status string) error {
-	user := &dbfuncs.User{ID: userID, Status: status}
+	user := &orm.User{ID: userID, Status: status}
 	return user.Change()
 }
 
@@ -53,10 +53,10 @@ func SessionStart(w http.ResponseWriter, r *http.Request, login string, userID i
 		sidFromCookie, _ = url.QueryUnescape(cookie.Value)
 	}
 
-	res, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+	res, e := orm.GetOneFrom(orm.SQLSelectParams{
 		Table:   "Sessions",
 		What:    "id",
-		Options: dbfuncs.DoSQLOption("userID = ?", "", "", userID),
+		Options: orm.DoSQLOption("userID = ?", "", "", userID),
 		Joins:   nil,
 	})
 	if res != nil && e == nil {
@@ -74,7 +74,7 @@ func SessionStart(w http.ResponseWriter, r *http.Request, login string, userID i
 	}
 
 	// create or change session
-	s := &dbfuncs.Session{ID: sid, Expire: TimeExpire(sessionExpire), UserID: userID}
+	s := &orm.Session{ID: sid, Expire: TimeExpire(sessionExpire), UserID: userID}
 	if isToCreate {
 		e = s.Create()
 	} else {
@@ -91,9 +91,9 @@ func SessionStart(w http.ResponseWriter, r *http.Request, login string, userID i
 
 // SessionGC delete expired session
 func (app *Application) SessionGC() error {
-	return dbfuncs.DeleteByParams(dbfuncs.SQLDeleteParams{
+	return orm.DeleteByParams(orm.SQLDeleteParams{
 		Table:   "Sessions",
-		Options: dbfuncs.DoSQLOption("datetime(expire) < datetime('"+TimeExpire(time.Nanosecond)+"')", "", ""),
+		Options: orm.DoSQLOption("datetime(expire) < datetime('"+TimeExpire(time.Nanosecond)+"')", "", ""),
 	})
 }
 
@@ -108,7 +108,7 @@ func (app *Application) CheckPerMin() {
 		min++
 		if min == 60*24 {
 			min = 0
-			app.UsersCode = map[string]*dbfuncs.User{}
+			app.UsersCode = map[string]*orm.User{}
 			app.RestoreCode = map[string]string{}
 		}
 		if min == 30 {

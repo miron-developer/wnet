@@ -8,8 +8,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"wnet/app/dbfuncs"
+	"wnet/pkg/orm"
 )
+
+type API_RESPONSE struct {
+	Err  string      `json:"err"`
+	Data interface{} `json:"data"`
+}
 
 const (
 	FOLLOWING_USER_ONE_Q   string = "SELECT receiverUserID FROM Relations WHERE senderUserID = ? AND (value = 1 OR value = 0)"
@@ -44,12 +49,12 @@ func getLimit(r *http.Request) (int, int) {
 	return first, count
 }
 
-func generalGet(w http.ResponseWriter, r *http.Request, selectParams dbfuncs.SQLSelectParams, sampleStruct interface{}, additionalFields ...string) []map[string]interface{} {
-	results, e := dbfuncs.GetFrom(selectParams)
+func generalGet(w http.ResponseWriter, r *http.Request, selectParams orm.SQLSelectParams, sampleStruct interface{}, additionalFields ...string) []map[string]interface{} {
+	results, e := orm.GetFrom(selectParams)
 	if e != nil || len(results) == 0 {
 		return []map[string]interface{}{}
 	}
-	return dbfuncs.MapFromStructAndMatrix(results, sampleStruct, additionalFields...)
+	return orm.MapFromStructAndMatrix(results, sampleStruct, additionalFields...)
 }
 
 func isHaveAccessToPost(id, userID int) bool {
@@ -72,7 +77,7 @@ func isHaveAccessToPost(id, userID int) bool {
 		FROM Posts WHERE id = ?`
 	args := []interface{}{userID, userID, userID, userID, userID, id}
 
-	res, e := dbfuncs.GetWithQueryAndArgs(q, args)
+	res, e := orm.GetWithQueryAndArgs(q, args)
 	if e != nil || res == nil || (res != nil && (res[0][0] == 0 || res[0][0] == nil)) {
 		return false
 	}
@@ -92,38 +97,38 @@ func isHaveAccess(id, userID int, table string) bool {
 		FROM ` + table + ` WHERE id = ?`
 	args := []interface{}{userID, userID, userID, userID, id}
 
-	res, e := dbfuncs.GetWithQueryAndArgs(q, args)
+	res, e := orm.GetWithQueryAndArgs(q, args)
 	if e != nil || res == nil || (res != nil && (res[0][0] == 0 || res[0][0] == nil)) {
 		return false
 	}
 	return true
 }
 
-func userJoin(joinCondition string) dbfuncs.SQLJoin {
-	return dbfuncs.DoSQLJoin(dbfuncs.LOJOINQ, "Users AS u", joinCondition)
+func userJoin(joinCondition string) orm.SQLJoin {
+	return orm.DoSQLJoin(orm.LOJOINQ, "Users AS u", joinCondition)
 }
 
-func groupJoin(joinCondition string) dbfuncs.SQLJoin {
-	return dbfuncs.DoSQLJoin(dbfuncs.LOJOINQ, "Groups AS g", joinCondition)
+func groupJoin(joinCondition string) orm.SQLJoin {
+	return orm.DoSQLJoin(orm.LOJOINQ, "Groups AS g", joinCondition)
 }
 
-func likeJoin(joinCondition string) dbfuncs.SQLJoin {
-	return dbfuncs.DoSQLJoin(dbfuncs.LOJOINQ, "Likes AS l", joinCondition)
+func likeJoin(joinCondition string) orm.SQLJoin {
+	return orm.DoSQLJoin(orm.LOJOINQ, "Likes AS l", joinCondition)
 }
 
-func carmaCountQ(column string, columnID int) dbfuncs.SQLSelectParams {
-	return dbfuncs.SQLSelectParams{
+func carmaCountQ(column string, columnID int) orm.SQLSelectParams {
+	return orm.SQLSelectParams{
 		Table:   "Likes",
 		What:    "COUNT(id)",
-		Options: dbfuncs.DoSQLOption(column+" = ?", "", "", columnID),
+		Options: orm.DoSQLOption(column+" = ?", "", "", columnID),
 	}
 }
 
-func eventAnswerQ(answer, eventID int) dbfuncs.SQLSelectParams {
-	return dbfuncs.SQLSelectParams{
+func eventAnswerQ(answer, eventID int) orm.SQLSelectParams {
+	return orm.SQLSelectParams{
 		Table:   "EventAnswers",
 		What:    "COUNT(id)",
-		Options: dbfuncs.DoSQLOption("answer = ? AND eventID = ?", "", "", answer, eventID),
+		Options: orm.DoSQLOption("answer = ? AND eventID = ?", "", "", answer, eventID),
 	}
 }
 
@@ -147,7 +152,7 @@ func (app *Application) News(w http.ResponseWriter, r *http.Request) (interface{
 	first, count := getLimit(r)
 
 	// res ex: [[4 post 1588670115000] [3 event 1588670115000]]
-	newsIDS, e := dbfuncs.GetWithQueryAndArgs(
+	newsIDS, e := orm.GetWithQueryAndArgs(
 		`SELECT id, type, datetime FROM Posts 
 			WHERE
 				userID = ? OR 
@@ -168,7 +173,7 @@ func (app *Application) News(w http.ResponseWriter, r *http.Request) (interface{
 		return nil, errors.New("wrong data")
 	}
 
-	return dbfuncs.MapFromStructAndMatrix(newsIDS, struct {
+	return orm.MapFromStructAndMatrix(newsIDS, struct {
 		ID       int    `json:"id"`
 		Type     string `json:"type"`
 		Datetime int    `json:"datetime"`
@@ -206,12 +211,12 @@ func (app *Application) Publications(w http.ResponseWriter, r *http.Request) (in
 	args = append(args, first, count)
 
 	// res ex: [[4 post 1588670115000] [3 event 1588670115000]]
-	publIDS, e := dbfuncs.GetWithQueryAndArgs(q, args)
+	publIDS, e := orm.GetWithQueryAndArgs(q, args)
 	if e != nil {
 		return nil, errors.New("wrong data")
 	}
 
-	return dbfuncs.MapFromStructAndMatrix(publIDS, struct {
+	return orm.MapFromStructAndMatrix(publIDS, struct {
 		ID       int    `json:"id"`
 		Type     string `json:"type"`
 		Datetime int    `json:"datetime"`
@@ -228,10 +233,10 @@ func (app *Application) Notifications(w http.ResponseWriter, r *http.Request) (i
 	return generalGet(
 		w,
 		r,
-		dbfuncs.SQLSelectParams{
+		orm.SQLSelectParams{
 			Table: "Notifications",
 			What:  "id, type",
-			Options: dbfuncs.DoSQLOption(
+			Options: orm.DoSQLOption(
 				`receiverUserID=? OR
 				senderUserID IN(`+FOLLOWING_USER_ONE_Q+`) OR
 				senderUserID IN(`+FOLLOWING_USER_BOTH_Q+`)`,
@@ -259,7 +264,7 @@ func (app *Application) Gallery(w http.ResponseWriter, r *http.Request) (interfa
 		isUser = false
 	}
 
-	op := dbfuncs.DoSQLOption("", "m.datetime DESC", "?,?")
+	op := orm.DoSQLOption("", "m.datetime DESC", "?,?")
 	if isUser {
 		op.Where = "m.userID = ?"
 	} else {
@@ -276,7 +281,7 @@ func (app *Application) Gallery(w http.ResponseWriter, r *http.Request) (interfa
 
 	op.Args = append(op.Args, ID, galleryType, first, count)
 
-	getJoin := func(isUser bool) (dbfuncs.SQLJoin, string) {
+	getJoin := func(isUser bool) (orm.SQLJoin, string) {
 		if isUser {
 			return userJoin("m.userID=u.id"), "u.nName, u.ava"
 		}
@@ -287,13 +292,13 @@ func (app *Application) Gallery(w http.ResponseWriter, r *http.Request) (interfa
 	return generalGet(
 		w,
 		r,
-		dbfuncs.SQLSelectParams{
+		orm.SQLSelectParams{
 			Table:   "Media as m",
 			What:    "m.*, " + getStr,
 			Options: op,
-			Joins:   []dbfuncs.SQLJoin{join},
+			Joins:   []orm.SQLJoin{join},
 		},
-		dbfuncs.Media{},
+		orm.Media{},
 		"name", "avatar",
 	), nil
 }
@@ -307,7 +312,7 @@ func (app *Application) Users(w http.ResponseWriter, r *http.Request) (interface
 	first, count := getLimit(r)
 
 	usersType := r.FormValue("type")
-	op := dbfuncs.DoSQLOption(
+	op := orm.DoSQLOption(
 		"",
 		"nName ASC",
 		"?,?",
@@ -333,12 +338,12 @@ func (app *Application) Users(w http.ResponseWriter, r *http.Request) (interface
 	return generalGet(
 		w,
 		r,
-		dbfuncs.SQLSelectParams{
+		orm.SQLSelectParams{
 			Table:   "Users",
 			What:    "*",
 			Options: op,
 		},
-		dbfuncs.User{},
+		orm.User{},
 	), nil
 }
 
@@ -350,7 +355,7 @@ func (app *Application) Groups(w http.ResponseWriter, r *http.Request) (interfac
 
 	first, count := getLimit(r)
 	groupType := r.FormValue("type")
-	op := dbfuncs.DoSQLOption(
+	op := orm.DoSQLOption(
 		"",
 		"title ASC",
 		"?,?",
@@ -365,12 +370,12 @@ func (app *Application) Groups(w http.ResponseWriter, r *http.Request) (interfac
 	return generalGet(
 		w,
 		r,
-		dbfuncs.SQLSelectParams{
+		orm.SQLSelectParams{
 			Table:   "Groups",
 			What:    "*",
 			Options: op,
 		},
-		dbfuncs.Group{},
+		orm.Group{},
 	), nil
 }
 
@@ -389,10 +394,10 @@ func (app *Application) Events(w http.ResponseWriter, r *http.Request) (interfac
 	return generalGet(
 		w,
 		r,
-		dbfuncs.SQLSelectParams{
+		orm.SQLSelectParams{
 			Table: "Events",
 			What:  "id, type, datetime",
-			Options: dbfuncs.DoSQLOption(
+			Options: orm.DoSQLOption(
 				which+"ID = ?",
 				"",
 				"?,?",
@@ -422,23 +427,29 @@ func (app *Application) Comments(w http.ResponseWriter, r *http.Request) (interf
 	if commentType != "post" && commentType != "comment" && commentType != "media" {
 		return nil, errors.New("wrong comment type")
 	}
-	first, count := getLimit(r)
+
+	op := orm.DoSQLOption("c.id = ?", "", "", ID)
+	if r.FormValue("count") != "single" {
+		first, count := getLimit(r)
+		op = orm.DoSQLOption("c."+commentType+"ID = ?", "c.datetime DESC", "?,?", ID, first, count)
+	}
 
 	carmaQ := carmaCountQ("commentID", ID)
 	userJoin := userJoin("u.id = c.userID")
 	likesJoin := likeJoin("l.userID = c.userID AND l.commentID = c.id")
-	mainQ := dbfuncs.SQLSelectParams{
+	mainQ := orm.SQLSelectParams{
 		Table:   "Comments as c",
 		What:    "c.*, u.nName, u.ava, u.status, l.id IS NOT NULL",
-		Options: dbfuncs.DoSQLOption("c."+commentType+"ID = ?", "c.datetime DESC", "?,?", ID, first, count),
-		Joins:   []dbfuncs.SQLJoin{userJoin, likesJoin},
+		Options: op,
+		Joins:   []orm.SQLJoin{userJoin, likesJoin},
 	}
 
-	return dbfuncs.GetWithSubqueries(
+	return orm.GetWithSubqueries(
 		mainQ,
-		[]dbfuncs.SQLSelectParams{carmaQ},
-		[]string{"nickname", "avatar", "status", "isLiked", "carma"},
-		dbfuncs.Comment{},
+		[]orm.SQLSelectParams{carmaQ},
+		[]string{"nickname", "avatar", "status", "isLiked"},
+		[]string{"carma"},
+		orm.Comment{},
 	)
 }
 
@@ -452,7 +463,7 @@ func (app *Application) Messages(w http.ResponseWriter, r *http.Request) (interf
 	receiverID := r.FormValue("id")
 	chatType := r.FormValue("type")
 
-	op := dbfuncs.DoSQLOption(
+	op := orm.DoSQLOption(
 		"senderUserID=? AND receiverGroupID=?",
 		"datetime(datetime) DESC",
 		"?,?",
@@ -465,17 +476,17 @@ func (app *Application) Messages(w http.ResponseWriter, r *http.Request) (interf
 	op.Args = append(op.Args, first, count)
 
 	userJ := userJoin("m.senderUserID = u.id")
-	fileJ := dbfuncs.DoSQLJoin(dbfuncs.LOJOINQ, "Files AS f", "f.messageID=m.id")
+	fileJ := orm.DoSQLJoin(orm.LOJOINQ, "Files AS f", "f.messageID=m.id")
 	return generalGet(
 		w,
 		r,
-		dbfuncs.SQLSelectParams{
+		orm.SQLSelectParams{
 			Table:   "Messages AS m",
 			What:    "m.*, u.ava, u.nName, u.status, f.src",
 			Options: op,
-			Joins:   []dbfuncs.SQLJoin{userJ, fileJ},
+			Joins:   []orm.SQLJoin{userJ, fileJ},
 		},
-		dbfuncs.Message{},
+		orm.Message{},
 		"avatar", "nickname", "status", "src",
 	), nil
 }
@@ -488,7 +499,7 @@ func (app *Application) Chats(w http.ResponseWriter, r *http.Request) (interface
 
 	first, count := getLimit(r)
 
-	messageSelectOp := dbfuncs.DoSQLOption(
+	messageSelectOp := orm.DoSQLOption(
 		`(c.senderUserID = m.senderUserID AND c.receiverUserID = m.receiverUserID) OR
 		(c.senderUserID = m.receiverUserID AND c.receiverUserID = m.senderUserID) OR
 		(c.senderUserID = m.senderUserID AND c.receiverGroupID = m.receiverGroupID)`,
@@ -496,36 +507,37 @@ func (app *Application) Chats(w http.ResponseWriter, r *http.Request) (interface
 		"?",
 		1,
 	)
-	messageBodyQ := dbfuncs.SQLSelectParams{
-		Table:   "Messages as m",
+	messageBodyQ := orm.SQLSelectParams{
+		Table:   "Messages AS m",
 		What:    "m.body",
 		Options: messageSelectOp,
 	}
-	messageDatetimeQ := dbfuncs.SQLSelectParams{
-		Table:   "Messages as m",
+	messageDatetimeQ := orm.SQLSelectParams{
+		Table:   "Messages AS m",
 		What:    "m.datetime",
 		Options: messageSelectOp,
 	}
 
 	userJ := userJoin("c.receiverUserID=u.id")
 	groupJ := groupJoin("c.receiverGroupID=g.id")
-	mainQ := dbfuncs.SQLSelectParams{
+	mainQ := orm.SQLSelectParams{
 		Table: "Chats c",
 		What:  "c.*, u.ava, u.nName, u.status, g.ava, g.title",
-		Options: dbfuncs.DoSQLOption(
-			"(c.senderUserID = ? AND c.receiverUserID != ?) OR (c.senderUserID = ? AND c.receiverUserID ISNULL)",
+		Options: orm.DoSQLOption(
+			"(c.users LIKE '%|"+strconv.Itoa(ID)+" %' AND c.closed NOT LIKE '%|"+strconv.Itoa(ID)+" %') ",
 			"",
 			"?,?",
-			ID, ID, ID, first, count,
+			first, count,
 		),
-		Joins: []dbfuncs.SQLJoin{userJ, groupJ},
+		Joins: []orm.SQLJoin{userJ, groupJ},
 	}
 
-	return dbfuncs.GetWithSubqueries(
+	return orm.GetWithSubqueries(
 		mainQ,
-		[]dbfuncs.SQLSelectParams{messageBodyQ, messageDatetimeQ},
+		[]orm.SQLSelectParams{messageBodyQ, messageDatetimeQ},
 		[]string{"userAvatar", "nickname", "status", "groupAvatar", "groupTitle", "msgBody", "msgDatetime"},
-		dbfuncs.Chat{},
+		[]string{"msgBody", "msgDatetime"},
+		orm.Chat{},
 	)
 }
 
@@ -543,12 +555,12 @@ func (app *Application) ClippedFiles(w http.ResponseWriter, r *http.Request) (in
 	return generalGet(
 		w,
 		r,
-		dbfuncs.SQLSelectParams{
+		orm.SQLSelectParams{
 			Table:   "Files",
 			What:    "*",
-			Options: dbfuncs.DoSQLOption(clippedType+"ID=?", "", "", ID),
+			Options: orm.DoSQLOption(clippedType+"ID=?", "", "", ID),
 		},
-		dbfuncs.ClippedFile{},
+		orm.ClippedFile{},
 	), nil
 }
 
@@ -585,24 +597,24 @@ func (app *Application) Notification(w http.ResponseWriter, r *http.Request) (in
 	}
 	getType, whatData, whatID := selectType(noteType)
 
-	selectGetTypeQ := dbfuncs.SQLSelectParams{
+	selectGetTypeQ := orm.SQLSelectParams{
 		Table:   getType,
 		What:    whatData,
-		Options: dbfuncs.DoSQLOption("id = n."+whatID, "", ""),
+		Options: orm.DoSQLOption("id = n."+whatID, "", ""),
 	}
-	userQ := dbfuncs.SQLSelectParams{
+	userQ := orm.SQLSelectParams{
 		Table:   "Users",
 		What:    "nName",
-		Options: dbfuncs.DoSQLOption("id = n.senderUserID", "", ""),
+		Options: orm.DoSQLOption("id = n.senderUserID", "", ""),
 	}
 
-	mainQ := dbfuncs.SQLSelectParams{
+	mainQ := orm.SQLSelectParams{
 		Table:   "Notifications AS n",
 		What:    "n.*",
-		Options: dbfuncs.DoSQLOption("n.id=?", "", "", ID),
+		Options: orm.DoSQLOption("n.id=?", "", "", ID),
 	}
 
-	return dbfuncs.GetWithSubqueries(mainQ, []dbfuncs.SQLSelectParams{selectGetTypeQ, userQ}, []string{"whatData", "nickname"}, dbfuncs.Notification{})
+	return orm.GetWithSubqueries(mainQ, []orm.SQLSelectParams{selectGetTypeQ, userQ}, []string{}, []string{"whatData", "nickname"}, orm.Notification{})
 }
 
 func (app *Application) User(w http.ResponseWriter, r *http.Request) (interface{}, error) {
@@ -611,47 +623,47 @@ func (app *Application) User(w http.ResponseWriter, r *http.Request) (interface{
 		return nil, errors.New("wrong id")
 	}
 
-	mainQ := dbfuncs.SQLSelectParams{
+	mainQ := orm.SQLSelectParams{
 		Table:   "Users",
 		What:    "*",
-		Options: dbfuncs.DoSQLOption("id=?", "", "", ID),
+		Options: orm.DoSQLOption("id=?", "", "", ID),
 	}
-	followersQ := dbfuncs.SQLSelectParams{
+	followersQ := orm.SQLSelectParams{
 		Table: "Users",
 		What:  "COUNT(id)",
-		Options: dbfuncs.DoSQLOption(
+		Options: orm.DoSQLOption(
 			"id IN("+FOLLOWERS_USER_ONE_Q+") OR id IN("+FOLLOWERS_USER_BOTH_Q+")",
 			"",
 			"",
 			ID, ID,
 		),
 	}
-	followingQ := dbfuncs.SQLSelectParams{
+	followingQ := orm.SQLSelectParams{
 		Table: "Users",
 		What:  "COUNT(id)",
-		Options: dbfuncs.DoSQLOption(
+		Options: orm.DoSQLOption(
 			"id IN("+FOLLOWING_USER_ONE_Q+") OR id IN("+FOLLOWING_USER_BOTH_Q+")",
 			"",
 			"",
 			ID, ID,
 		),
 	}
-	eventsQ := dbfuncs.SQLSelectParams{
+	eventsQ := orm.SQLSelectParams{
 		Table:   "Events",
 		What:    "COUNT(id)",
-		Options: dbfuncs.DoSQLOption("userID=?", "", "", ID),
+		Options: orm.DoSQLOption("userID=?", "", "", ID),
 	}
-	groupsQ := dbfuncs.SQLSelectParams{
+	groupsQ := orm.SQLSelectParams{
 		Table:   "Relations",
 		What:    "COUNT(id)",
-		Options: dbfuncs.DoSQLOption("senderUserID=? AND receiverGroupID IS NOT NULL", "", "", ID),
+		Options: orm.DoSQLOption("senderUserID=? AND receiverGroupID IS NOT NULL", "", "", ID),
 	}
-	mediaQ := dbfuncs.SQLSelectParams{
+	mediaQ := orm.SQLSelectParams{
 		Table:   "Media",
 		What:    "COUNT(id)",
-		Options: dbfuncs.DoSQLOption("userID=?", "", "", ID),
+		Options: orm.DoSQLOption("userID=?", "", "", ID),
 	}
-	querys := []dbfuncs.SQLSelectParams{followersQ, followingQ, eventsQ, groupsQ, mediaQ}
+	querys := []orm.SQLSelectParams{followersQ, followingQ, eventsQ, groupsQ, mediaQ}
 	as := []string{"followersCount", "followingCount", "eventsCount", "groupsCount", "galleryCount"}
 
 	if r.FormValue("type") == "profile" {
@@ -660,23 +672,24 @@ func (app *Application) User(w http.ResponseWriter, r *http.Request) (interface{
 			return nil, errors.New("not logged")
 		}
 
-		querys = append(querys, dbfuncs.SQLSelectParams{
+		querys = append(querys, orm.SQLSelectParams{
 			Table:   "Relations",
 			What:    "value",
-			Options: dbfuncs.DoSQLOption("senderUserID=? AND receiverUserID=?", "", "", ID, userID),
-		}, dbfuncs.SQLSelectParams{
+			Options: orm.DoSQLOption("senderUserID=? AND receiverUserID=?", "", "", ID, userID),
+		}, orm.SQLSelectParams{
 			Table:   "Relations",
 			What:    "value",
-			Options: dbfuncs.DoSQLOption("senderUserID=? AND receiverUserID=?", "", "", userID, ID),
+			Options: orm.DoSQLOption("senderUserID=? AND receiverUserID=?", "", "", userID, ID),
 		})
 		as = append(as, "InRlshState", "OutRlshState")
 	}
 
-	return dbfuncs.GetWithSubqueries(
+	return orm.GetWithSubqueries(
 		mainQ,
 		querys,
+		[]string{},
 		as,
-		dbfuncs.User{},
+		orm.User{},
 	)
 }
 
@@ -686,32 +699,32 @@ func (app *Application) Group(w http.ResponseWriter, r *http.Request) (interface
 		return nil, errors.New("wrong id")
 	}
 
-	mainQ := dbfuncs.SQLSelectParams{
+	mainQ := orm.SQLSelectParams{
 		Table:   "Groups",
 		What:    "*",
-		Options: dbfuncs.DoSQLOption("id=?", "", "", ID),
+		Options: orm.DoSQLOption("id=?", "", "", ID),
 	}
-	membersQ := dbfuncs.SQLSelectParams{
+	membersQ := orm.SQLSelectParams{
 		Table: "Users",
 		What:  "COUNT(id)",
-		Options: dbfuncs.DoSQLOption(
+		Options: orm.DoSQLOption(
 			"id IN ("+FOLLOWERS_GROUP_ONE_Q+") OR id IN ("+FOLLOWERS_GROUP_BOTH_Q+")",
 			"",
 			"",
 			ID, ID,
 		),
 	}
-	eventsQ := dbfuncs.SQLSelectParams{
+	eventsQ := orm.SQLSelectParams{
 		Table:   "Events",
 		What:    "COUNT(id)",
-		Options: dbfuncs.DoSQLOption("groupID=?", "", "", ID),
+		Options: orm.DoSQLOption("groupID=?", "", "", ID),
 	}
-	mediaQ := dbfuncs.SQLSelectParams{
+	mediaQ := orm.SQLSelectParams{
 		Table:   "Media",
 		What:    "COUNT(id)",
-		Options: dbfuncs.DoSQLOption("groupID=?", "", "", ID),
+		Options: orm.DoSQLOption("groupID=?", "", "", ID),
 	}
-	querys := []dbfuncs.SQLSelectParams{membersQ, eventsQ, mediaQ}
+	querys := []orm.SQLSelectParams{membersQ, eventsQ, mediaQ}
 	as := []string{"membersCount", "eventsCount", "galleryCount"}
 
 	if r.FormValue("type") == "profile" {
@@ -720,23 +733,24 @@ func (app *Application) Group(w http.ResponseWriter, r *http.Request) (interface
 			return nil, errors.New("not logged")
 		}
 
-		querys = append(querys, dbfuncs.SQLSelectParams{
+		querys = append(querys, orm.SQLSelectParams{
 			Table:   "Relations",
 			What:    "value",
-			Options: dbfuncs.DoSQLOption("senderGroupID=? AND receiverUserID=?", "", "", ID, userID),
-		}, dbfuncs.SQLSelectParams{
+			Options: orm.DoSQLOption("senderGroupID=? AND receiverUserID=?", "", "", ID, userID),
+		}, orm.SQLSelectParams{
 			Table:   "Relations",
 			What:    "value",
-			Options: dbfuncs.DoSQLOption("senderUserID=? AND receiverGroupID=?", "", "", userID, ID),
+			Options: orm.DoSQLOption("senderUserID=? AND receiverGroupID=?", "", "", userID, ID),
 		})
 		as = append(as, "InRlshState", "OutRlshState")
 	}
 
-	return dbfuncs.GetWithSubqueries(
+	return orm.GetWithSubqueries(
 		mainQ,
 		querys,
+		[]string{},
 		as,
-		dbfuncs.Group{},
+		orm.Group{},
 	)
 }
 
@@ -755,18 +769,19 @@ func (app *Application) Post(w http.ResponseWriter, r *http.Request) (interface{
 	userJoin := userJoin("u.id = p.userID")
 	groupJoin := groupJoin("g.id = p.groupID")
 	likesJoin := likeJoin("l.userID = p.userID AND l.postID = p.id")
-	mainQ := dbfuncs.SQLSelectParams{
+	mainQ := orm.SQLSelectParams{
 		Table:   "Posts as p",
 		What:    "p.*, u.nName, u.ava, u.status, g.title, g.ava, l.id IS NOT NULL",
-		Options: dbfuncs.DoSQLOption("p.id = ?", "", "", ID),
-		Joins:   []dbfuncs.SQLJoin{userJoin, groupJoin, likesJoin},
+		Options: orm.DoSQLOption("p.id = ?", "", "", ID),
+		Joins:   []orm.SQLJoin{userJoin, groupJoin, likesJoin},
 	}
 
-	return dbfuncs.GetWithSubqueries(
+	return orm.GetWithSubqueries(
 		mainQ,
-		[]dbfuncs.SQLSelectParams{carmaQ},
-		[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "isLiked", "carma"},
-		dbfuncs.Post{},
+		[]orm.SQLSelectParams{carmaQ},
+		[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "isLiked"},
+		[]string{"carma"},
+		orm.Post{},
 	)
 }
 
@@ -783,58 +798,64 @@ func (app *Application) Event(w http.ResponseWriter, r *http.Request) (interface
 
 	userJoin := userJoin("u.id = e.userID")
 	groupJoin := groupJoin("g.id = e.groupID")
-	eventAnswersJoin := dbfuncs.DoSQLJoin(dbfuncs.LOJOINQ, "EventAnswers AS ea", "ea.userID = ? AND ea.eventID = e.id", userID)
+	eventAnswersJoin := orm.DoSQLJoin(orm.LOJOINQ, "EventAnswers AS ea", "ea.userID = ? AND ea.eventID = e.id", userID)
 
 	eventAnswersGoingQ := eventAnswerQ(0, ID)
 	eventAnswersNotGoingQ := eventAnswerQ(1, ID)
 	eventAnswersIDKQ := eventAnswerQ(2, ID)
-	mainQ := dbfuncs.SQLSelectParams{
+	mainQ := orm.SQLSelectParams{
 		Table:   "Events as e",
 		What:    "e.*, u.nName, u.ava, u.status, g.title, g.ava, ea.answer",
-		Options: dbfuncs.DoSQLOption("e.id = ?", "", "", ID),
-		Joins:   []dbfuncs.SQLJoin{userJoin, groupJoin, eventAnswersJoin},
+		Options: orm.DoSQLOption("e.id = ?", "", "", ID),
+		Joins:   []orm.SQLJoin{userJoin, groupJoin, eventAnswersJoin},
 	}
 
-	return dbfuncs.GetWithSubqueries(
+	return orm.GetWithSubqueries(
 		mainQ,
-		[]dbfuncs.SQLSelectParams{eventAnswersGoingQ, eventAnswersNotGoingQ, eventAnswersIDKQ},
-		[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "myVote", "votes0", "votes1", "votes2"},
-		dbfuncs.Event{},
+		[]orm.SQLSelectParams{eventAnswersGoingQ, eventAnswersNotGoingQ, eventAnswersIDKQ},
+		[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "myVote"},
+		[]string{"votes0", "votes1", "votes2"},
+		orm.Event{},
 	)
 }
 
-func (app *Application) Comment(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+func (app *Application) Media(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	ID, e := strconv.Atoi(r.FormValue("id"))
 	if e != nil {
 		return nil, errors.New("wrong id")
 	}
-
 	userID := getUserIDfromReq(w, r)
-	if userID == -1 {
-		return nil, errors.New("not logged")
+	if !isHaveAccess(ID, userID, "Media") {
+		return nil, errors.New("not have access")
+	}
+	mediaType := r.FormValue("type")
+	if mediaType != "photo" && mediaType != "video" {
+		return nil, errors.New("wrong type")
 	}
 
-	carmaQ := carmaCountQ("commentID", ID)
-	userJoin := userJoin("u.id = c.userID")
-	likesJoin := likeJoin("l.userID = c.userID AND l.commentID = c.id")
-	mainQ := dbfuncs.SQLSelectParams{
-		Table:   "Comments as c",
-		What:    "c.*, u.nName, u.ava, u.status, l.id IS NOT NULL",
-		Options: dbfuncs.DoSQLOption("c.id = ?", "", "", ID),
-		Joins:   []dbfuncs.SQLJoin{userJoin, likesJoin},
+	carmaQ := carmaCountQ("mediaID", ID)
+	userJoin := userJoin("u.id = m.userID")
+	groupJoin := groupJoin("g.id = m.groupID")
+	likesJoin := likeJoin("l.userID = m.userID AND l.mediaID = m.id")
+	mainQ := orm.SQLSelectParams{
+		Table:   "Media as m",
+		What:    "m.*, u.nName, u.ava, u.status, g.title, g.ava, l.id IS NOT NULL",
+		Options: orm.DoSQLOption("m.id = ? AND m.type = ?", "", "", ID, mediaType),
+		Joins:   []orm.SQLJoin{userJoin, groupJoin, likesJoin},
 	}
 
-	return dbfuncs.GetWithSubqueries(
+	return orm.GetWithSubqueries(
 		mainQ,
-		[]dbfuncs.SQLSelectParams{carmaQ},
-		[]string{"nickname", "avatar", "status", "isLiked", "carma"},
-		dbfuncs.Comment{},
+		[]orm.SQLSelectParams{carmaQ},
+		[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "isLiked"},
+		[]string{"carma"},
+		orm.Media{},
 	)
 }
 
 // GetFile save one file
 func (app *Application) GetFile(w http.ResponseWriter, r *http.Request) {
-	file, content, e := dbfuncs.GetFileFromDrive(strings.Split(r.URL.Path, "/")[2])
+	file, content, e := orm.GetFileFromDrive(strings.Split(r.URL.Path, "/")[2])
 	if e != nil {
 		return
 	}
@@ -843,4 +864,287 @@ func (app *Application) GetFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename="+file.Name)
 	w.Header().Set("Content-Type", ftype)
 	io.Copy(w, bytes.NewReader(content))
+}
+
+func searchGetCountFilter(where, formVal string, defVal int, op *orm.SQLOption) {
+	if formVal != "" {
+		val, e := strconv.Atoi(formVal)
+		if e != nil {
+			val = defVal
+		}
+		op.Where += where + " ? AND"
+		op.Args = append(op.Args, val)
+	}
+}
+
+func searchGetBtnFilter(val string, choises [][]string, isOrder bool, op *orm.SQLOption) {
+	for _, choise := range choises {
+		if val == choise[0] {
+			if isOrder {
+				op.Order = choise[1] + " DESC"
+				return
+			}
+			op.Where += choise[1] + " ? AND"
+			op.Args = append(op.Args, choise[0])
+			return
+		}
+	}
+}
+
+func searchGetSwitchFilter(where, formVal, onVal, offVal string, op *orm.SQLOption) {
+	if formVal == "1" {
+		op.Where += where + " ? AND"
+		if offVal == "" {
+			op.Args = append(op.Args, onVal)
+		} else {
+			op.Args = append(op.Args, offVal)
+		}
+		return
+	}
+}
+
+func removeLastFromStr(src, delim string) string {
+	splitted := strings.Split(src, delim)
+	return strings.Join(splitted[:len(splitted)-1], delim)
+}
+
+func searchGetTextFilter(q string, searchFields []string, op *orm.SQLOption) error {
+	if q != "" {
+		if XCSSOther(q) != nil {
+			return errors.New("danger search text")
+		}
+
+		op.Where += "("
+		for _, v := range searchFields {
+			op.Where += v + " LIKE '%" + q + "%' OR "
+		}
+		op.Where = removeLastFromStr(op.Where, "OR ")
+		op.Where += ")"
+		return nil
+	}
+	op.Where = removeLastFromStr(op.Where, "AND")
+	return nil
+}
+
+func doSearch(r *http.Request, q orm.SQLSelectParams, sampleStruct interface{}, addQs []orm.SQLSelectParams, joinAs, qAs []string) (interface{}, error) {
+	first, count := getLimit(r)
+	q.Options.Args = append(q.Options.Args, first, count)
+	return orm.GetWithSubqueries(q, addQs, joinAs, qAs, sampleStruct)
+}
+
+func searchUser(userID int, r *http.Request) (interface{}, error) {
+	op := orm.DoSQLOption("", "status DESC", "?,?")
+
+	searchGetCountFilter(" age >=", r.FormValue("agemin"), 0, &op)
+	searchGetCountFilter(" age <=", r.FormValue("agemax"), 100, &op)
+	searchGetCountFilter(" followers >=", r.FormValue("subsmin"), 0, &op)
+	searchGetCountFilter(" followers <=", r.FormValue("subsmax"), 0, &op)
+
+	searchGetBtnFilter(
+		r.FormValue("sort"),
+		[][]string{
+			{"subs", "followers"},
+		},
+		true,
+		&op,
+	)
+	searchGetBtnFilter(
+		r.FormValue("gender"),
+		[][]string{
+			{"Male", " gender ="},
+			{"Female", " gender ="},
+		},
+		false,
+		&op,
+	)
+
+	searchGetSwitchFilter(" status =", r.FormValue("online"), "online", "", &op)
+
+	if e := searchGetTextFilter(r.FormValue("q"), []string{"u.fName", "u.lName", "u.nName"}, &op); e != nil {
+		return nil, e
+	}
+
+	subsCountQ := orm.SQLSelectParams{
+		Table:   "Relations AS r",
+		What:    "COUNT(id)",
+		Options: orm.DoSQLOption("receiverUserID = u.id", "", ""),
+	}
+	inRlsh := orm.SQLSelectParams{
+		Table:   "Relations AS inR",
+		What:    "value",
+		Options: orm.DoSQLOption("senderUserID = u.id AND receiverUserID = ?", "", "", userID),
+	}
+	outRlsh := orm.SQLSelectParams{
+		Table:   "Relations AS outR",
+		What:    "value",
+		Options: orm.DoSQLOption("senderUserID = ? AND receiverUserID = u.id", "", "", userID),
+	}
+	q := orm.SQLSelectParams{
+		Table:   "Users AS u",
+		What:    "u.*",
+		Options: op,
+	}
+	return doSearch(r, q, orm.User{}, []orm.SQLSelectParams{subsCountQ, inRlsh, outRlsh}, []string{}, []string{"followers", "InRlshState", "OutRlshState"})
+}
+
+func searchGroup(userID int, r *http.Request) (interface{}, error) {
+	op := orm.DoSQLOption("", "cdate DESC", "?,?")
+
+	searchGetCountFilter(" members >=", r.FormValue("membmin"), 0, &op)
+	searchGetCountFilter(" members <=", r.FormValue("membmax"), 100, &op)
+
+	searchGetBtnFilter(
+		r.FormValue("sort"),
+		[][]string{
+			{"member", "members"},
+		},
+		true,
+		&op,
+	)
+
+	searchGetSwitchFilter("isPrivate =", r.FormValue("private"), "1", "0", &op)
+
+	if e := searchGetTextFilter(r.FormValue("q"), []string{"g.title", "g.about"}, &op); e != nil {
+		return nil, e
+	}
+
+	subsCountQ := orm.SQLSelectParams{
+		Table:   "Relations AS r",
+		What:    "COUNT(id)",
+		Options: orm.DoSQLOption("receiverGroupID = g.id", "", ""),
+	}
+	inRlsh := orm.SQLSelectParams{
+		Table:   "Relations AS inR",
+		What:    "value",
+		Options: orm.DoSQLOption("senderGroupID = g.id AND receiverUserID = ?", "", "", userID),
+	}
+	outRlsh := orm.SQLSelectParams{
+		Table:   "Relations AS outR",
+		What:    "value",
+		Options: orm.DoSQLOption("senderUserID = ? AND receiverGroupID = g.id", "", "", userID),
+	}
+	q := orm.SQLSelectParams{
+		Table:   "Groups AS g",
+		What:    "g.*",
+		Options: op,
+	}
+	return doSearch(r, q, orm.Group{}, []orm.SQLSelectParams{subsCountQ, inRlsh, outRlsh}, []string{}, []string{"members", "InRlshState", "OutRlshState"})
+}
+
+func searchPost(userID int, r *http.Request) (interface{}, error) {
+	op := orm.DoSQLOption("", "datetime DESC", "?,?")
+
+	searchGetCountFilter(" carma >=", r.FormValue("carmamin"), 0, &op)
+	searchGetCountFilter(" carma <=", r.FormValue("carmamax"), 100, &op)
+
+	searchGetBtnFilter(
+		r.FormValue("sort"),
+		[][]string{
+			{"pop", "carma"},
+		},
+		true,
+		&op,
+	)
+
+	if e := searchGetTextFilter(r.FormValue("q"), []string{"p.title", "p.body"}, &op); e != nil {
+		return nil, e
+	}
+
+	userJoin := userJoin("u.id = p.userID")
+	groupJoin := groupJoin("g.id = p.groupID")
+	likesJoin := likeJoin("l.userID = ? AND l.postID = p.id")
+	likesJoin.Args = append(likesJoin.Args, userID)
+	carmaQ := orm.SQLSelectParams{
+		Table:   "Likes AS c",
+		What:    "COUNT(id)",
+		Options: orm.DoSQLOption("c.postID = p.id", "", ""),
+	}
+	q := orm.SQLSelectParams{
+		Table:   "Posts AS p",
+		What:    "p.*, u.nName, u.ava, u.status, g.title, g.ava, l.id IS NOT NULL",
+		Options: op,
+		Joins:   []orm.SQLJoin{userJoin, groupJoin, likesJoin},
+	}
+	return doSearch(
+		r,
+		q,
+		orm.Post{},
+		[]orm.SQLSelectParams{carmaQ},
+		[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "isLiked"},
+		[]string{"carma"},
+	)
+}
+
+func searchVideo(userID int, r *http.Request) (interface{}, error) {
+	op := orm.DoSQLOption("m.type = 'video' AND ", "datetime DESC", "?,?")
+
+	searchGetCountFilter(" carma >=", r.FormValue("carmamin"), 0, &op)
+	searchGetCountFilter(" carma <=", r.FormValue("carmamax"), 100, &op)
+
+	searchGetBtnFilter(
+		r.FormValue("sort"),
+		[][]string{
+			{"pop", "carma"},
+		},
+		true,
+		&op,
+	)
+
+	if e := searchGetTextFilter(r.FormValue("q"), []string{"m.title"}, &op); e != nil {
+		return nil, e
+	}
+
+	userJoin := userJoin("u.id = m.userID")
+	groupJoin := groupJoin("g.id = m.groupID")
+	likesJoin := likeJoin("l.userID = ? AND l.mediaID = m.id")
+	likesJoin.Args = append(likesJoin.Args, userID)
+	carmaQ := orm.SQLSelectParams{
+		Table:   "Likes AS c",
+		What:    "COUNT(id)",
+		Options: orm.DoSQLOption("c.mediaID = m.id", "", ""),
+	}
+	q := orm.SQLSelectParams{
+		Table:   "Media AS m",
+		What:    "m.*, u.nName, u.ava, u.status, g.title, g.ava, l.id IS NOT NULL",
+		Options: op,
+		Joins:   []orm.SQLJoin{userJoin, groupJoin, likesJoin},
+	}
+	return doSearch(
+		r,
+		q,
+		orm.Media{},
+		[]orm.SQLSelectParams{carmaQ},
+		[]string{"nickname", "userAvatar", "status", "groupTitle", "groupAvatar", "isLiked"},
+		[]string{"carma"},
+	)
+}
+
+func (app *Application) Search(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	userID := getUserIDfromReq(w, r)
+	if userID == -1 {
+		return nil, errors.New("not logged")
+	}
+
+	searchType := r.FormValue("type")
+	if searchType != "all" &&
+		searchType != "user" &&
+		searchType != "group" &&
+		searchType != "post" &&
+		searchType != "video" {
+		return nil, errors.New("wrong type")
+	}
+
+	if searchType == "user" {
+		return searchUser(userID, r)
+	}
+	if searchType == "group" {
+		return searchGroup(userID, r)
+	}
+	if searchType == "post" {
+		return searchPost(userID, r)
+	}
+	if searchType == "video" {
+		return searchVideo(userID, r)
+	}
+	return nil, errors.New("'All' not supported yet")
 }

@@ -1,7 +1,9 @@
-package dbfuncs
+package orm
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -93,7 +95,7 @@ func (p *Post) Create() (int, error) {
 
 	params := SQLInsertParams{
 		Table:  "Posts",
-		Datas:  "null,?,?,?,?,?,?,?,?",
+		Datas:  "null,?,?,?,?,?,?,?,?,?",
 		Values: MakeArrFromStruct(*p),
 	}
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{p.UserID, p.GroupID})
@@ -131,30 +133,58 @@ func (msg *Message) Create() (int, error) {
 
 // Create create one Chat
 func (c *Chat) Create() (int, error) {
-	if c.SenderUserID == 0 {
+	if c.ReceiverGroupID == 0 && c.ReceiverUserID == 0 {
 		return -1, errors.New("n/d")
+	}
+
+	op := DoSQLOption(
+		"(users = ? OR users = ?) AND type = 'user'",
+		"",
+		"",
+		fmt.Sprintf("|%v |%v ", c.SenderUserID, c.ReceiverUserID), fmt.Sprintf("|%v |%v ", c.ReceiverUserID, c.SenderUserID),
+	)
+	if c.ChatType == "group" {
+		op.Where = "users LIKE '%|" + strconv.Itoa(c.SenderUserID) + " %' AND receiverGroupID = ?"
+		op.Args = []interface{}{c.ReceiverGroupID}
+	}
+
+	if data, e := GetOneFrom(SQLSelectParams{
+		Table:   "Chats",
+		What:    "id, closed",
+		Options: op,
+	}); e == nil && data != nil {
+		closeds := data[1].(string)
+		rg := regexp.MustCompile(`[|\d]+[` + strconv.Itoa(c.SenderUserID) + `]+\s`)
+		if rg.MatchString(closeds) {
+			closeds = rg.ReplaceAllString(closeds, "")
+			return FromINT64ToINT(data[0]), c.Change()
+		}
+		return FromINT64ToINT(data[0]), nil
+	}
+
+	if c.ChatType == "group" {
+		data, e := GetFrom(SQLSelectParams{
+			Table:   "Users AS u",
+			What:    "u.id",
+			Options: DoSQLOption("", "", ""),
+			Joins:   []SQLJoin{DoSQLJoin(INJOINQ, "Relations AS r", "r.senderUserID = u.id AND r.receiverGroupID = ?", c.ReceiverGroupID)},
+		})
+		if data == nil && e != nil {
+			return -1, e
+		}
+		c.Users = ""
+		for _, v := range data {
+			c.Users += fmt.Sprint("|", v[0], " ")
+		}
 	}
 
 	params := SQLInsertParams{
 		Table:  "Chats",
-		Datas:  "null,?,?,?",
+		Datas:  "null,?,?,?,?,?,?",
 		Values: MakeArrFromStruct(*c),
 	}
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{c.ReceiverUserID, c.ReceiverGroupID})
 	params.Values = params.Values[1:]
-
-	op := DoSQLOption("senderUserID=? AND receiverGroupID=?", "", "", params.Values...)
-	if strings.Split(params.Datas, ",")[2] != "null" {
-		op.Where = strings.Replace(op.Where, "Group", "User", 1)
-	}
-
-	if id, e := GetOneFrom(SQLSelectParams{
-		Table:   "Chats",
-		What:    "id",
-		Options: op,
-	}); e == nil && id != nil {
-		return FromINT64ToINT(id[0]), nil
-	}
 
 	res, e := insertSQL(params)
 	if e != nil {
@@ -247,7 +277,7 @@ func (c *Comment) Create() (int, error) {
 
 	params := SQLInsertParams{
 		Table:  "Comments",
-		Datas:  "null,?,?,?,?,?,?,?,?",
+		Datas:  "null,?,?,?,?,?,?,?,?,?",
 		Values: MakeArrFromStruct(*c),
 	}
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{c.PostID, c.CommentID, c.MediaID})
@@ -338,7 +368,7 @@ func (f *ClippedFile) Create() (int, error) {
 
 	params := SQLInsertParams{
 		Table:  "Files",
-		Datas:  "null,?,?,?,?,?,?",
+		Datas:  "null,?,?,?,?,?,?,?",
 		Values: MakeArrFromStruct(*f),
 	}
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{f.PostID, f.CommentID, f.MessageID})
@@ -470,6 +500,32 @@ func (p *Post) Change() error {
 	if p.PostType != "" {
 		params.Couples["type"] = p.PostType
 	}
+	if p.IsHaveClippedFiles != "" {
+		params.Couples["isHaveClippedFiles"] = p.IsHaveClippedFiles
+	}
+
+	_, e := updateSQL(params)
+	return e
+}
+
+// Change change chat
+func (c *Chat) Change() error {
+	if c.ID == 0 {
+		return errors.New("absent/d")
+	}
+
+	params := SQLUpdateParams{
+		Table:   "Chats",
+		Couples: map[string]string{},
+		Options: DoSQLOption("id=?", "", "", c.ID),
+	}
+
+	if c.Closed != "" {
+		params.Couples["closed"] = c.Closed
+	}
+	if c.Users != "" {
+		params.Couples["users"] = c.Users
+	}
 
 	_, e := updateSQL(params)
 	return e
@@ -556,6 +612,9 @@ func (c *Comment) Change() error {
 	}
 	if c.IsHaveChild != "" {
 		params.Couples["isHaveChild"] = c.IsHaveChild
+	}
+	if c.IsHaveClippedFiles != "" {
+		params.Couples["isHaveClippedFiles"] = c.IsHaveClippedFiles
 	}
 
 	_, e := updateSQL(params)

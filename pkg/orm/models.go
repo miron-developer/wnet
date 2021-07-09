@@ -1,4 +1,4 @@
-package dbfuncs
+package orm
 
 // User - table
 type User struct {
@@ -40,15 +40,16 @@ type Session struct {
 
 // Post - table
 type Post struct {
-	ID           int    `json:"id"`
-	Type         string `json:"type"`
-	Title        string `json:"title"`
-	Body         string `json:"body"`
-	UnixDate     int    `json:"datetime"`
-	PostType     string `json:"postType"`
-	AllowedUsers string `json:"allowedUsers"`
-	UserID       int    `json:"userID"`
-	GroupID      int    `json:"groupID"`
+	ID                 int    `json:"id"`
+	Type               string `json:"type"`
+	Title              string `json:"title"`
+	Body               string `json:"body"`
+	UnixDate           int    `json:"datetime"`
+	PostType           string `json:"postType"`
+	AllowedUsers       string `json:"allowedUsers"`
+	IsHaveClippedFiles string `json:"isHaveClippedFiles"`
+	UserID             int    `json:"userID"`
+	GroupID            int    `json:"groupID"`
 }
 
 // Message - table
@@ -64,10 +65,13 @@ type Message struct {
 
 // Chat - table
 type Chat struct {
-	ID              int `json:"id"`
-	SenderUserID    int `json:"senderUserID"`
-	ReceiverUserID  int `json:"receiverUserID"`
-	ReceiverGroupID int `json:"receiverGroupID"`
+	ID              int    `json:"id"`
+	ChatType        string `json:"type"`
+	Users           string `json:"users"`
+	Closed          string `json:"closed"`
+	SenderUserID    int    `json:"senderUserID"`
+	ReceiverUserID  int    `json:"receiverUserID"`
+	ReceiverGroupID int    `json:"receiverGroupID"`
 }
 
 // Event - table
@@ -113,15 +117,16 @@ type Media struct {
 
 // Comment - table
 type Comment struct {
-	ID          int    `json:"id"`
-	Body        string `json:"body"`
-	UnixDate    int    `json:"datetime"`
-	IsHaveChild string `json:"isHaveChild"`
-	IsAnswer    string `json:"isAnswer"`
-	UserID      int    `json:"userID"`
-	PostID      int    `json:"postID"`
-	CommentID   int    `json:"commentID"`
-	MediaID     int    `json:"mediaID"`
+	ID                 int    `json:"id"`
+	Body               string `json:"body"`
+	UnixDate           int    `json:"datetime"`
+	IsHaveChild        string `json:"isHaveChild"`
+	IsAnswer           string `json:"isAnswer"`
+	IsHaveClippedFiles string `json:"isHaveClippedFiles"`
+	UserID             int    `json:"userID"`
+	PostID             int    `json:"postID"`
+	CommentID          int    `json:"commentID"`
+	MediaID            int    `json:"mediaID"`
 }
 
 // Notification - table
@@ -150,8 +155,9 @@ type Like struct {
 // ClippedFile - table
 type ClippedFile struct {
 	ID        int    `json:"id"`
-	FileType  string `json:"fileType"`
+	FileType  string `json:"type"`
 	Source    string `json:"src"`
+	Name      string `json:"filename"`
 	UserID    int    `json:"userID"`
 	PostID    int    `json:"postID"`
 	CommentID int    `json:"commentID"`

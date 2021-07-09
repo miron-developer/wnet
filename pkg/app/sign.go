@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"wnet/app/dbfuncs"
+	"wnet/pkg/orm"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -16,10 +16,10 @@ import (
 // checkEmailAndNick check if email is empty or not
 //	exist = true - user exist in db
 func checkEmailAndNick(exist bool, email, nickname string) error {
-	results, _ := dbfuncs.GetFrom(dbfuncs.SQLSelectParams{
+	results, _ := orm.GetFrom(orm.SQLSelectParams{
 		What:    "email, nName",
 		Table:   "Users",
-		Options: dbfuncs.DoSQLOption("email=? OR nName=?", "", "", email, nickname),
+		Options: orm.DoSQLOption("email=? OR nName=?", "", "", email, nickname),
 	})
 
 	if !exist && len(results) > 0 {
@@ -51,10 +51,10 @@ func checkPassword(exist bool, pass, login string) error {
 			return errors.New("password must have at least 8 character")
 		}
 	} else {
-		dbPass, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+		dbPass, e := orm.GetOneFrom(orm.SQLSelectParams{
 			What:    "password",
 			Table:   "Users",
-			Options: dbfuncs.DoSQLOption("email = ? OR nName = ?", "", "", login, login),
+			Options: orm.DoSQLOption("email = ? OR nName = ?", "", "", login, login),
 		})
 		if e != nil {
 			return errors.New("Wrong login")
@@ -130,11 +130,11 @@ func (app *Application) SignUp(w http.ResponseWriter, r *http.Request) (map[stri
 	}
 
 	// XCSS
-	if app.XCSSOther(lname) != nil || app.XCSSOther(fname) != nil {
+	if checkAllXSS(lname, fname) != nil {
 		return nil, errors.New("It's XSS attack!")
 	}
 
-	user := &dbfuncs.User{
+	user := &orm.User{
 		FirstName: fname, LastName: lname, NickName: nickname,
 		Gender: "Default", Age: age, Avatar: "/img/default-avatar.png", Dob: dob, About: "",
 		Status: "online", IsPrivate: "0", Type: "user",
@@ -175,16 +175,16 @@ func (app *Application) SignIn(w http.ResponseWriter, r *http.Request) (int, err
 		}
 	}
 
-	res, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+	res, e := orm.GetOneFrom(orm.SQLSelectParams{
 		What:    "id",
 		Table:   "Users",
-		Options: dbfuncs.DoSQLOption("email = ? OR nName = ?", "", "", email, email),
+		Options: orm.DoSQLOption("email = ? OR nName = ?", "", "", email, email),
 		Joins:   nil,
 	})
 	if e != nil {
 		return -1, errors.New("Wrong login")
 	}
-	ID := dbfuncs.FromINT64ToINT(res[0])
+	ID := orm.FromINT64ToINT(res[0])
 
 	if app.findUserByID(ID) != nil {
 		return -1, errors.New("User already is online!")
@@ -199,14 +199,14 @@ func (app *Application) Logout(w http.ResponseWriter, r *http.Request) error {
 		return errors.New("not logged")
 	}
 
-	if e := dbfuncs.DeleteByParams(dbfuncs.SQLDeleteParams{
+	if e := orm.DeleteByParams(orm.SQLDeleteParams{
 		Table:   "Sessions",
-		Options: dbfuncs.DoSQLOption("userID = ?", "", "", id),
+		Options: orm.DoSQLOption("userID = ?", "", "", id),
 	}); e != nil {
 		return errors.New("Not logouted")
 	}
 
-	u := dbfuncs.User{ID: id, Status: strconv.Itoa(int(time.Now().Unix() * 1000))}
+	u := orm.User{ID: id, Status: strconv.Itoa(int(time.Now().Unix() * 1000))}
 	u.Change()
 	app.m.Lock()
 	delete(app.OnlineUsers, id)
@@ -227,10 +227,10 @@ func (app *Application) SaveNewPassword(w http.ResponseWriter, r *http.Request) 
 		return e
 	}
 
-	res, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+	res, e := orm.GetOneFrom(orm.SQLSelectParams{
 		What:    "id",
 		Table:   "Users",
-		Options: dbfuncs.DoSQLOption("email = ?", "", "", email),
+		Options: orm.DoSQLOption("email = ?", "", "", email),
 	})
 	if e != nil {
 		return errors.New("password do not changed")
@@ -240,7 +240,7 @@ func (app *Application) SaveNewPassword(w http.ResponseWriter, r *http.Request) 
 	if e != nil {
 		return errors.New("the new password do not created")
 	}
-	user := &dbfuncs.User{ID: dbfuncs.FromINT64ToINT(res[0]), Password: string(password)}
+	user := &orm.User{ID: orm.FromINT64ToINT(res[0]), Password: string(password)}
 	return user.Change()
 }
 

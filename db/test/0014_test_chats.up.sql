@@ -1,5 +1,8 @@
 INSERT INTO Chats VALUES(
     null,
+    "user",
+    "|1 |2 ",
+    "",
     1,
     2,
     null
@@ -7,6 +10,9 @@ INSERT INTO Chats VALUES(
 
 INSERT INTO Chats VALUES(
     null,
+    "user",
+    "|1 |3 ",
+    "",
     1,
     3,
     null
@@ -14,21 +20,10 @@ INSERT INTO Chats VALUES(
 
 INSERT INTO Chats VALUES(
     null,
-    2,
+    "group",
+    "|1 |2 ",
+    "",
     1,
-    null
-);
-
-INSERT INTO Chats VALUES(
-    null,
-    1,
-    null,
-    1
-);
-
-INSERT INTO Chats VALUES(
-    null,
-    2,
     null,
     1
 );

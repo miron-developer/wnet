@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"wnet/app/dbfuncs"
+	"wnet/pkg/orm"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -39,7 +39,7 @@ func (app *Application) ChangeSettings(w http.ResponseWriter, r *http.Request) e
 	ava, isPrivate := r.PostFormValue("avatar"), r.PostFormValue("isPrivate")
 
 	// XCSS
-	if app.checkAllXSS(email, pass, ava, isPrivate) != nil {
+	if checkAllXSS(email, pass, ava, isPrivate) != nil {
 		return errors.New("wrong content")
 	}
 	if email != "" {
@@ -60,15 +60,15 @@ func (app *Application) ChangeSettings(w http.ResponseWriter, r *http.Request) e
 	if e != nil {
 		return errors.New("pass not created")
 	}
-	u := &dbfuncs.User{
+	u := &orm.User{
 		ID: userID, Avatar: ava,
 		Email: email, Password: string(hashPass), IsPrivate: isPrivate,
 	}
 
-	em, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+	em, e := orm.GetOneFrom(orm.SQLSelectParams{
 		Table:   "Users",
 		What:    "email",
-		Options: dbfuncs.DoSQLOption("id=?", "", "", userID),
+		Options: orm.DoSQLOption("id=?", "", "", userID),
 	})
 	if e != nil || em[0] == nil {
 		return errors.New("not logged")
@@ -101,11 +101,11 @@ func (app *Application) ChangeProfile(w http.ResponseWriter, r *http.Request) er
 	if isUser {
 		fName, lName, nName := r.PostFormValue("firstName"), r.PostFormValue("lastName"), r.PostFormValue("nickname")
 		dob, about, gender := r.PostFormValue("dob"), r.PostFormValue("aboutMe"), r.PostFormValue("gender")
-		if app.checkAllXSS(fName, lName, nName, dob, about, gender) != nil {
+		if checkAllXSS(fName, lName, nName, dob, about, gender) != nil {
 			return errors.New("wrong content")
 		}
 
-		u := &dbfuncs.User{
+		u := &orm.User{
 			ID:  id,
 			Dob: dob, Gender: gender, About: about,
 			FirstName: fName, LastName: lName, NickName: nName,
@@ -113,11 +113,11 @@ func (app *Application) ChangeProfile(w http.ResponseWriter, r *http.Request) er
 		return u.Change()
 	}
 	title, description := r.PostFormValue("title"), r.PostFormValue("description")
-	if app.checkAllXSS(title, description) != nil {
+	if checkAllXSS(title, description) != nil {
 		return errors.New("wrong content")
 	}
 
-	g := &dbfuncs.Group{
+	g := &orm.Group{
 		ID: id, Title: title, About: description,
 	}
 	return g.Change()

@@ -1,4 +1,4 @@
-package dbfuncs
+package orm
 
 import (
 	"context"
@@ -85,12 +85,7 @@ func insertSQL(params SQLInsertParams) (sql.Result, error) {
 	if e != nil {
 		return nil, e
 	}
-
-	r, e := st.Exec(params.Values...)
-	if e != nil {
-		return nil, errors.New("not created")
-	}
-	return r, nil
+	return st.Exec(params.Values...)
 }
 
 func insertBySelect(table, datas string, values []interface{}, op SQLOption) (sql.Result, error) {
@@ -190,7 +185,6 @@ func selectSQL(query string, args []interface{}) ([][]interface{}, error) {
 	res := [][]interface{}{}
 	rows, e := ConnToDB.QueryContext(context.Background(), query, args...)
 	if e != nil {
-		fmt.Println("error:", e)
 		return nil, e
 	}
 	cols, _ := rows.Columns()

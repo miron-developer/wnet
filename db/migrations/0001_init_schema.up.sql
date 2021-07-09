@@ -62,13 +62,15 @@ CREATE TABLE IF NOT EXISTS Posts (
     datetime INTEGER NOT NULL,
     postType TEXT,
     allowedUsers TEXT,
+    isHaveClippedFiles INTEGER,
     userID INTEGER,
     groupID INTEGER,
 	FOREIGN KEY (userID) REFERENCES Users(id) ON DELETE CASCADE,
 	FOREIGN KEY (groupID) REFERENCES Groups(id) ON DELETE CASCADE,
 	CHECK(
         type = "post" AND
-        postType IN("public", "private", "almost_private")
+        postType IN("public", "private", "almost_private") AND
+        isHaveClippedFiles IN (0, 1)
     )
 );
 
@@ -91,12 +93,18 @@ CREATE TABLE IF NOT EXISTS Messages (
 -- opened chats
 CREATE TABLE IF NOT EXISTS Chats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT,
+    users TEXT NOT NULL,
+    closed TEXT,
     senderUserID INTEGER,
     receiverUserID INTEGER,
     receiverGroupID INTEGER,
     FOREIGN KEY (senderUserID) REFERENCES Users(id) ON DELETE CASCADE,
-	FOREIGN KEY (receiverUserID) REFERENCES Users(id) ON DELETE CASCADE,
+    FOREIGN KEY (receiverUserID) REFERENCES Users(id) ON DELETE CASCADE,
 	FOREIGN KEY (receiverGroupID) REFERENCES Groups(id) ON DELETE CASCADE
+    CHECK(
+        type IN("user", "group")
+    )
 );
 
 CREATE TABLE IF NOT EXISTS Events (
@@ -166,6 +174,7 @@ CREATE TABLE IF NOT EXISTS Comments (
     datetime INTEGER NOT NULL,
     isHaveChild INTEGER, -- is have answers
     isAnswer INTEGER, -- is it comment answer
+    isHaveClippedFiles INTEGER, -- is have clipped files
     userID INTEGER, -- who write comment
     postID INTEGER, -- if comment to post, id > 0
     commentID INTEGER, -- if comment to comment(answer), id > 0
@@ -176,7 +185,8 @@ CREATE TABLE IF NOT EXISTS Comments (
 	FOREIGN KEY (mediaID) REFERENCES Media(id) ON DELETE CASCADE,
 	CHECK(
         isHaveChild IN (0, 1) AND
-        isAnswer IN (0, 1)
+        isAnswer IN (0, 1) AND
+        isHaveClippedFiles IN (0, 1)
     )
 );
 
@@ -235,6 +245,7 @@ CREATE TABLE IF NOT EXISTS Files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT,
     src TEXT NOT NULL,
+    name TEXT NOT NULL,
     userID INTEGER,
     postID INTEGER, -- if clipped to post, id > 0
     commentID INTEGER, -- if clipped to comment, id > 0

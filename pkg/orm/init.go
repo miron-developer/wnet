@@ -1,4 +1,4 @@
-package dbfuncs
+package orm
 
 import (
 	"context"

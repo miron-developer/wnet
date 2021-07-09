@@ -8,15 +8,14 @@
 FROM golang:1.13
 
 COPY . .
-WORKDIR /app
-RUN go mod download; go build
+WORKDIR /pkg
+RUN go mod download; go build -o ./cmd/wnet cmd/main.go
 
 LABEL description="This is the social-network project." \
     authors="Miron-developer, MirasK" \
     contacts="https://github.com/miron-developer, https://github.com/mirasK, wnet.soc.net@gmail.com" \
-    site="https://wnet.netlify.app"
+    site="https://wnet-sn.herokuapp.com"
 
-CMD ["./wnet"]
+CMD ["cmd/wnet"]
 
-EXPOSE 8080
 EXPOSE 4430

@@ -8,6 +8,7 @@ INSERT INTO Posts VALUES(
     "public",
     "",
     1,
+    1,
     null
 );
 
@@ -20,6 +21,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "private",
     "",
+    0,
     1,
     null
 );
@@ -33,6 +35,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "almost_private",
     "2,3",
+    0,
     1,
     null
 );
@@ -46,6 +49,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "public",
     "",
+    0,
     2,
     null
 );
@@ -59,6 +63,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "private",
     "",
+    0,
     2,
     null
 );
@@ -72,6 +77,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "almost_private",
     "1,3",
+    0,
     2,
     null
 );
@@ -85,6 +91,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "public",
     "",
+    0,
     5,
     null
 );
@@ -98,6 +105,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "private",
     "",
+    0,
     5,
     null
 );
@@ -111,6 +119,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "almost_private",
     "2,3",
+    0,
     5,
     null
 );
@@ -124,6 +133,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "public",
     "",
+    0,
     null,
     1
 );
@@ -137,6 +147,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "private",
     "",
+    0,
     null,
     1
 );
@@ -150,6 +161,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "almost_private",
     "2",
+    0,
     null,
     1
 );
@@ -163,6 +175,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "public",
     "",
+    0,
     null,
     4
 );
@@ -176,6 +189,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "private",
     "",
+    0,
     null,
     4
 );
@@ -189,6 +203,7 @@ INSERT INTO Posts VALUES(
     1588670115000,
     "almost_private",
     "2,3",
+    0,
     null,
     4
 );

@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"time"
-	"wnet/app/dbfuncs"
+	"wnet/pkg/orm"
 )
 
 func StringWithCharset(length int) string {
@@ -21,30 +21,20 @@ func StringWithCharset(length int) string {
 	return string(b)
 }
 
-// handle error and write it responseWriter
-func (app *Application) eHandler(w http.ResponseWriter, e error, msg string, code int) bool {
-	if e != nil {
-		http.Error(w, msg, code)
-		app.ELog.Println(e)
-		return true
-	}
-	return false
-}
-
 // write in log each request
 func logingReq(r *http.Request) string {
-	return fmt.Sprintf("%v: '%v'\n", r.Method, r.URL)
+	return fmt.Sprintf("%v %v: '%v'\n", r.RemoteAddr, r.Method, r.URL)
 }
 
 // XCSSOther check
-func (app *Application) XCSSOther(data string) error {
+func XCSSOther(data string) error {
 	if data == "" {
 		return nil
 	}
 
-	rg := regexp.MustCompile(`^[\w\d@#'?!.():/,-_\s\p{Cyrillic}]+$`)
-	if !rg.MatchString(data) {
-		return errors.New("wrong data")
+	rg := regexp.MustCompile(`<+[\w\s/]+>+`)
+	if rg.MatchString(data) {
+		return errors.New("xss data")
 	}
 	return nil
 }
@@ -56,7 +46,7 @@ func TimeExpire(add time.Duration) string {
 
 // DoBackup make backup every 30 min
 func (app *Application) DoBackup() error {
-	return dbfuncs.UploadDB()
+	return orm.UploadDB()
 }
 
 // checkIsLogged check if user is logged
@@ -74,18 +64,18 @@ func getUserIDfromReq(w http.ResponseWriter, r *http.Request) int {
 		return -1
 	}
 
-	userID, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+	userID, e := orm.GetOneFrom(orm.SQLSelectParams{
 		Table:   "Sessions",
 		What:    "userID",
-		Options: dbfuncs.DoSQLOption("id = ?", "", "", sesID),
+		Options: orm.DoSQLOption("id = ?", "", "", sesID),
 	})
 	if e != nil {
 		return -1
 	}
 
 	// update cooks & sess
-	ses := &dbfuncs.Session{ID: sesID, Expire: TimeExpire(sessionExpire)}
+	ses := &orm.Session{ID: sesID, Expire: TimeExpire(sessionExpire)}
 	ses.Change()
 	setCookie(w, sesID, int(sessionExpire/timeSecond))
-	return dbfuncs.FromINT64ToINT(userID[0])
+	return orm.FromINT64ToINT(userID[0])
 }

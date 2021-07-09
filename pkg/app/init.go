@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 	"sync"
-	"wnet/app/dbfuncs"
+	"wnet/pkg/orm"
 )
 
 // Application this is app struct and items
@@ -20,9 +20,9 @@ type Application struct {
 	CurrentRequestCount int
 	MaxRequestCount     int
 	IsHeroku            bool
-	UsersCode           map[string]*dbfuncs.User
+	UsersCode           map[string]*orm.User
 	RestoreCode         map[string]string
-	ChangeCode          map[string]*dbfuncs.User
+	ChangeCode          map[string]*orm.User
 	OnlineUsers         map[int]*WSUser
 	WSMessages          chan *WSMessage
 	// ChatRooms           map[string]*ChatRoom
@@ -36,7 +36,7 @@ func InitProg() *Application {
 	info := log.New(logFile, "\033[34m[INFO]\033[0m\t", log.Ldate|log.Ltime|log.Lshortfile)
 	info.Println("loggers is done!")
 
-	dbfuncs.InitDB(elog)
+	orm.InitDB(elog)
 	info.Println("db completed!")
 
 	return &Application{
@@ -46,9 +46,9 @@ func InitProg() *Application {
 		CurrentRequestCount: 0,
 		MaxRequestCount:     1200,
 		IsHeroku:            false,
-		UsersCode:           map[string]*dbfuncs.User{},
+		UsersCode:           map[string]*orm.User{},
 		RestoreCode:         map[string]string{},
-		ChangeCode:          map[string]*dbfuncs.User{},
+		ChangeCode:          map[string]*orm.User{},
 		OnlineUsers:         map[int]*WSUser{},
 		WSMessages:          make(chan *WSMessage),
 		// ChatRooms:           map[string]*ChatRoom{},

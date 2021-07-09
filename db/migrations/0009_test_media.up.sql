@@ -4,7 +4,7 @@ INSERT INTO Media VALUES(
     "test media",
     "photo",
     1588670115000,
-    "/img/default-avatar.png",
+    "/assets/1RAirDknnijt8uRboEb_wB09Sl9iavURu",
     "",
     1,
     null
@@ -16,7 +16,7 @@ INSERT INTO Media VALUES(
     "test media",
     "video",
     1588670115000,
-    "/video-ex.mp4",
+    "/assets/1eKGDhnrxIm93lZNt5ckncmS997BA59_t",
     "/img/default-avatar.png",
     1,
     null
@@ -28,7 +28,7 @@ INSERT INTO Media VALUES(
     "test media",
     "photo",
     1588670115000,
-    "/img/default-avatar.png",
+    "/assets/1RAirDknnijt8uRboEb_wB09Sl9iavURu",
     "",
     null,
     1
@@ -40,7 +40,7 @@ INSERT INTO Media VALUES(
     "test media",
     "video",
     1588670115000,
-    "/video-ex.mp4",
+    "/assets/1eKGDhnrxIm93lZNt5ckncmS997BA59_t",
     "/img/default-avatar.png",
     null,
     1
@@ -52,7 +52,7 @@ INSERT INTO Media VALUES(
     "test media",
     "photo",
     1588670115000,
-    "/img/default-avatar.png",
+    "/assets/1RAirDknnijt8uRboEb_wB09Sl9iavURu",
     "",
     2,
     null
@@ -64,7 +64,7 @@ INSERT INTO Media VALUES(
     "test media",
     "video",
     1588670115000,
-    "/video-ex.mp4",
+    "/assets/1eKGDhnrxIm93lZNt5ckncmS997BA59_t",
     "/img/default-avatar.png",
     2,
     null

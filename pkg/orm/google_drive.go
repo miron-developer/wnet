@@ -1,4 +1,4 @@
-package dbfuncs
+package orm
 
 import (
 	"context"
@@ -30,7 +30,7 @@ var DRIVE_IDS = map[string]string{
 }
 
 func initGoogleDriveService(eLogger *log.Logger) *drive.Service {
-	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "drive-sa.json")
+	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "config/drive-sa.json")
 	service, e := drive.NewService(context.Background(), option.WithScopes(drive.DriveScope))
 	if e != nil {
 		eLogger.Fatal("Can not get service: " + e.Error())

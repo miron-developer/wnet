@@ -3,16 +3,17 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-	"wnet/app/dbfuncs"
+	"wnet/pkg/orm"
 )
 
-func (app *Application) checkAllXSS(testers ...string) error {
+func checkAllXSS(testers ...string) error {
 	for _, v := range testers {
-		if e := app.XCSSOther(v); e != nil {
+		if e := XCSSOther(v); e != nil {
 			return e
 		}
 	}
@@ -54,7 +55,7 @@ func (app *Application) CreatePost(w http.ResponseWriter, r *http.Request) (inte
 	allowedUsers := r.PostFormValue("choosenFollowers")
 
 	// XCSS
-	if app.checkAllXSS(title, body, postType, allowedUsers) != nil {
+	if checkAllXSS(title, body, postType, allowedUsers) != nil {
 		return nil, errors.New("wrong content")
 	}
 
@@ -70,7 +71,7 @@ func (app *Application) CreatePost(w http.ResponseWriter, r *http.Request) (inte
 
 	datas := []int{}
 	for _, id := range ids {
-		p := &dbfuncs.Post{
+		p := &orm.Post{
 			Title: title, Body: body, PostType: postType, Type: "post",
 			UnixDate: int(time.Now().Unix() * 1000), AllowedUsers: allowedUsers,
 		}
@@ -103,11 +104,11 @@ func (app *Application) CreateGroup(w http.ResponseWriter, r *http.Request) (int
 	}
 
 	// XCSS
-	if app.checkAllXSS(title, description, groupType, inviteUsers, ava) != nil {
+	if checkAllXSS(title, description, groupType, inviteUsers, ava) != nil {
 		return -1, errors.New("wrong content")
 	}
 
-	g := &dbfuncs.Group{
+	g := &orm.Group{
 		Title: title, About: description, Type: "group",
 		CreationDate: strings.Split(TimeExpire(time.Nanosecond), " ")[0], Age: 0,
 		Avatar: ava, IsPrivate: groupType, OwnerUserID: userID,
@@ -117,20 +118,20 @@ func (app *Application) CreateGroup(w http.ResponseWriter, r *http.Request) (int
 		return -1, errors.New("not create group")
 	}
 
-	rl := &dbfuncs.Relation{
+	rl := &orm.Relation{
 		Value:           "1",
 		SenderUserID:    userID,
 		ReceiverGroupID: id,
 	}
 	if e := rl.Create(); e != nil {
-		dbfuncs.DeleteByParams(dbfuncs.SQLDeleteParams{Table: "Groups", Options: dbfuncs.DoSQLOption("id=?", "", "", id)})
+		orm.DeleteByParams(orm.SQLDeleteParams{Table: "Groups", Options: orm.DoSQLOption("id=?", "", "", id)})
 		return -1, errors.New("not create group: no relation between user & group")
 	}
 
 	if inviteUsers != "" {
 		for _, inviterStringID := range strings.Split(inviteUsers, ",") {
 			if inviterID, e := strconv.Atoi(inviterStringID); e != nil {
-				rlsh := &dbfuncs.Relation{
+				rlsh := &orm.Relation{
 					Value:          "1",
 					SenderGroupID:  id,
 					ReceiverUserID: inviterID,
@@ -158,14 +159,14 @@ func (app *Application) CreateEvent(w http.ResponseWriter, r *http.Request) (int
 	}
 
 	// XCSS
-	if app.checkAllXSS(title, description) != nil {
+	if checkAllXSS(title, description) != nil {
 		return nil, errors.New("wrong content")
 	}
 
 	ids := []int{}
 	for _, idString := range groups {
 		id, e := strconv.Atoi(idString)
-		evnt := &dbfuncs.Event{
+		evnt := &orm.Event{
 			Title: title, About: description, Type: "event",
 			UnixDate: dt, UserID: userID, GroupID: id,
 		}
@@ -190,7 +191,7 @@ func (app *Application) CreateMedia(w http.ResponseWriter, r *http.Request) (int
 	which, src, preview := r.PostFormValue("which"), r.PostFormValue("src"), r.PostFormValue("preview")
 
 	// XCSS
-	if app.checkAllXSS(title, mediaType, which) != nil {
+	if checkAllXSS(title, mediaType, which) != nil {
 		return nil, errors.New("wrong content")
 	}
 
@@ -206,7 +207,7 @@ func (app *Application) CreateMedia(w http.ResponseWriter, r *http.Request) (int
 
 	datas := []int{}
 	for _, id := range ids {
-		m := &dbfuncs.Media{
+		m := &orm.Media{
 			Title: title, MediaType: mediaType, UnixDate: int(time.Now().Unix() * 1000),
 			Source: src, Preview: preview,
 		}
@@ -228,15 +229,15 @@ func (app *Application) CreateMedia(w http.ResponseWriter, r *http.Request) (int
 
 func getFileType(ftype string) string {
 	if ftype == "image" || ftype == "photo" {
-		return dbfuncs.DRIVE_IMAGE_TYPE
+		return orm.DRIVE_IMAGE_TYPE
 	}
 	if ftype == "audio" {
-		return dbfuncs.DRIVE_AUDIO_TYPE
+		return orm.DRIVE_AUDIO_TYPE
 	}
 	if ftype == "video" {
-		return dbfuncs.DRIVE_VIDEO_TYPE
+		return orm.DRIVE_VIDEO_TYPE
 	}
-	return dbfuncs.DRIVE_FILE_TYPE
+	return orm.DRIVE_FILE_TYPE
 }
 
 func (app *Application) CreateFile(w http.ResponseWriter, r *http.Request) (interface{}, error) {
@@ -246,7 +247,7 @@ func (app *Application) CreateFile(w http.ResponseWriter, r *http.Request) (inte
 	}
 
 	fType := getFileType(r.PostFormValue("type"))
-	link, e := uploadFile("file", fType, r)
+	link, fName, e := uploadFile("file", fType, r)
 	if e != nil {
 		return "", e
 	}
@@ -259,8 +260,9 @@ func (app *Application) CreateFile(w http.ResponseWriter, r *http.Request) (inte
 			return "", errors.New("not saved file")
 		}
 
-		cfile := &dbfuncs.ClippedFile{
+		cfile := &orm.ClippedFile{
 			FileType: fType,
+			Name:     fName,
 			Source:   link,
 			UserID:   userID,
 		}
@@ -284,7 +286,7 @@ func (app *Application) CreateLike(w http.ResponseWriter, r *http.Request) (inte
 		return map[string]interface{}{"carma": 0, "isLiked": false}, errors.New("wrong id")
 	}
 
-	like := &dbfuncs.Like{UserID: userID}
+	like := &orm.Like{UserID: userID}
 	typeLike := r.PostFormValue("type")
 	if typeLike == "post" {
 		like.PostID = ID
@@ -299,7 +301,7 @@ func (app *Application) CreateLike(w http.ResponseWriter, r *http.Request) (inte
 		return map[string]interface{}{"carma": 0, "isLiked": false}, errors.New("not setted")
 	}
 
-	carmaAny, e := dbfuncs.GetOneFrom(carmaCountQ(typeLike+"ID", ID))
+	carmaAny, e := orm.GetOneFrom(carmaCountQ(typeLike+"ID", ID))
 	if e != nil || carmaAny[0] == nil {
 		return map[string]interface{}{"carma": 0, "isLiked": false}, e
 	}
@@ -317,7 +319,7 @@ func (app *Application) CreateRelation(w http.ResponseWriter, r *http.Request) (
 		return nil, errors.New("wrong id")
 	}
 
-	rlsh := &dbfuncs.Relation{SenderUserID: userID, ReceiverGroupID: ID}
+	rlsh := &orm.Relation{SenderUserID: userID, ReceiverGroupID: ID}
 	cond := "GroupID"
 	if r.PostFormValue("isUser") == "true" {
 		rlsh.ReceiverGroupID = 0
@@ -349,9 +351,9 @@ func (app *Application) CreateRelation(w http.ResponseWriter, r *http.Request) (
 	if op == 1 {
 		return nil, rlsh.Create()
 	} else if op == -1 {
-		return nil, dbfuncs.DeleteByParams(dbfuncs.SQLDeleteParams{
+		return nil, orm.DeleteByParams(orm.SQLDeleteParams{
 			Table: "Relations",
-			Options: dbfuncs.DoSQLOption(
+			Options: orm.DoSQLOption(
 				"(senderUserID = ? AND receiver"+cond+"=?) OR (receiverUserID=? AND sender"+cond+"=?)",
 				"",
 				"",
@@ -360,10 +362,10 @@ func (app *Application) CreateRelation(w http.ResponseWriter, r *http.Request) (
 		})
 	}
 
-	id, e := dbfuncs.GetOneFrom(dbfuncs.SQLSelectParams{
+	id, e := orm.GetOneFrom(orm.SQLSelectParams{
 		Table: "Relations",
 		What:  "id",
-		Options: dbfuncs.DoSQLOption(
+		Options: orm.DoSQLOption(
 			"(senderUserID = ? AND receiver"+cond+"=?) OR (receiverUserID=? AND sender"+cond+"=?)",
 			"",
 			"",
@@ -373,7 +375,7 @@ func (app *Application) CreateRelation(w http.ResponseWriter, r *http.Request) (
 	if e != nil || id[0] == nil {
 		return nil, errors.New("not changed")
 	}
-	rlsh.ID = dbfuncs.FromINT64ToINT(id[0])
+	rlsh.ID = orm.FromINT64ToINT(id[0])
 	return nil, rlsh.Change()
 }
 
@@ -388,7 +390,7 @@ func (app *Application) CreateEventAnswer(w http.ResponseWriter, r *http.Request
 		return nil, errors.New("wrong id")
 	}
 
-	ea := &dbfuncs.EventAnswer{UserID: userID, EventID: ID, Answer: r.PostFormValue("answer")}
+	ea := &orm.EventAnswer{UserID: userID, EventID: ID, Answer: r.PostFormValue("answer")}
 	if e := ea.Create(); e != nil {
 		return nil, errors.New("wrong event answer")
 	}
@@ -396,7 +398,7 @@ func (app *Application) CreateEventAnswer(w http.ResponseWriter, r *http.Request
 	goingQ := eventAnswerQ(0, ID)
 	notGoingQ := eventAnswerQ(1, ID)
 	idkQ := eventAnswerQ(2, ID)
-	votes, e := dbfuncs.GetWithSubqueries(goingQ, []dbfuncs.SQLSelectParams{notGoingQ, idkQ}, []string{"votes0", "votes1", "votes2"}, struct{}{})
+	votes, e := orm.GetWithSubqueries(goingQ, []orm.SQLSelectParams{notGoingQ, idkQ}, []string{}, []string{"votes0", "votes1", "votes2"}, struct{}{})
 	if e != nil {
 		return nil, e
 	}
@@ -414,9 +416,13 @@ func (app *Application) CreateChat(w http.ResponseWriter, r *http.Request) (inte
 		return nil, errors.New("wrong id")
 	}
 
-	chat := &dbfuncs.Chat{SenderUserID: userID, ReceiverUserID: ID}
+	chat := &orm.Chat{
+		ChatType: "user", Users: fmt.Sprintf("|%v |%v ", userID, ID),
+		SenderUserID: userID, ReceiverUserID: ID,
+	}
 	typeChat := r.PostFormValue("type")
 	if typeChat == "group" {
+		chat.ChatType = "group"
 		chat.ReceiverUserID = 0
 		chat.ReceiverGroupID = ID
 	}
@@ -439,14 +445,29 @@ func (app *Application) CreateMessage(w http.ResponseWriter, r *http.Request) (i
 		return nil, errors.New("wrong id")
 	}
 
-	m := dbfuncs.Message{
-		UnixDate: int(time.Now().Unix() * 1000), Body: r.PostFormValue("body"),
-		SenderUserID: userID, ReceiverUserID: ID, MessageType: r.PostFormValue("messageType"),
+	body, messageType := r.PostFormValue("body"), r.PostFormValue("messageType")
+	if checkAllXSS(body, messageType) != nil {
+		return nil, errors.New("wrong content")
 	}
+
+	m := orm.Message{
+		UnixDate: int(time.Now().Unix() * 1000), Body: body,
+		SenderUserID: userID, ReceiverUserID: ID, MessageType: messageType,
+	}
+	c := orm.Chat{
+		ChatType: "user", Users: fmt.Sprintf("|%v |%v ", userID, ID),
+		SenderUserID: userID, ReceiverUserID: m.ReceiverUserID, ReceiverGroupID: m.ReceiverGroupID,
+	}
+
 	typeChat := r.PostFormValue("type")
 	if typeChat == "group" {
+		c.ChatType = "group"
 		m.ReceiverUserID = 0
 		m.ReceiverGroupID = ID
+	}
+
+	if _, e = c.Create(); e != nil {
+		return -1, errors.New("not created message: not create chat")
 	}
 
 	id, e := m.Create()
@@ -454,5 +475,52 @@ func (app *Application) CreateMessage(w http.ResponseWriter, r *http.Request) (i
 		return -1, errors.New("not created message")
 	}
 
+	return []int{id}, nil
+}
+
+func (app *Application) CreateComment(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	userID := getUserIDfromReq(w, r)
+	if userID == -1 {
+		return nil, errors.New("not logged")
+	}
+	ID, e := strconv.Atoi(r.PostFormValue("id"))
+	if e != nil {
+		return nil, errors.New("wrong id")
+	}
+
+	commentType, body := r.PostFormValue("type"), r.PostFormValue("body")
+	isAnswer, isHaveClippedFiles := r.PostFormValue("isAnswer"), r.PostFormValue("isHaveClippedFiles")
+
+	if commentType != "post" && commentType != "comment" && commentType != "media" {
+		return nil, errors.New("wrong comment type")
+	}
+	if checkAllXSS(body, isHaveClippedFiles, isAnswer) != nil {
+		return nil, errors.New("wrong content")
+	}
+
+	c := orm.Comment{
+		Body: body, UnixDate: int(time.Now().Unix() * 1000),
+		IsHaveChild: "0", IsAnswer: isAnswer, IsHaveClippedFiles: isHaveClippedFiles,
+		UserID: userID, PostID: ID,
+	}
+	if commentType == "comment" {
+		c.PostID = 0
+		c.CommentID = ID
+
+		if r.PostFormValue("isHaveChild") == "0" {
+			parentComment := orm.Comment{ID: ID, IsHaveChild: "1"}
+			if e := parentComment.Change(); e != nil {
+				return -1, errors.New("not created comment, parent not changed")
+			}
+		}
+	} else if commentType == "media" {
+		c.PostID = 0
+		c.MediaID = ID
+	}
+
+	id, e := c.Create()
+	if e != nil {
+		return -1, errors.New("not created comment")
+	}
 	return []int{id}, nil
 }

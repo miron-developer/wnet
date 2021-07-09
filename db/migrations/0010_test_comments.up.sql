@@ -7,6 +7,7 @@ INSERT INTO Comments VALUES(
     0,
     1,
     1,
+    1,
     null,
     null
 );
@@ -18,19 +19,7 @@ INSERT INTO Comments VALUES(
     1588670115000,
     0,
     1,
-    1,
-    null,
-    1,
-    null
-);
-
--- my comment to comment
-INSERT INTO Comments VALUES(
-    null,
-    "test comment",
-    1588670115000,
     0,
-    1,
     1,
     null,
     1,
@@ -44,6 +33,21 @@ INSERT INTO Comments VALUES(
     1588670115000,
     0,
     1,
+    0,
+    1,
+    null,
+    1,
+    null
+);
+
+-- my comment to comment
+INSERT INTO Comments VALUES(
+    null,
+    "test comment",
+    1588670115000,
+    0,
+    1,
+    0,
     1,
     null,
     1,
@@ -56,6 +60,7 @@ INSERT INTO Comments VALUES(
     "test comment",
     1588670115000,
     1,
+    0,
     0,
     1,
     null,

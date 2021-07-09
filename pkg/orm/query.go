@@ -1,4 +1,4 @@
-package dbfuncs
+package orm
 
 import (
 	"errors"
@@ -26,21 +26,22 @@ func GetOneFrom(params SQLSelectParams) ([]interface{}, error) {
 }
 
 // GetWithSubqueries nested querys
-func GetWithSubqueries(mainQ SQLSelectParams, querys []SQLSelectParams, as []string, sampleStruct interface{}) ([]map[string]interface{}, error) {
+func GetWithSubqueries(mainQ SQLSelectParams, querys []SQLSelectParams, joinAs, qAs []string, sampleStruct interface{}) ([]map[string]interface{}, error) {
 	if querys == nil || len(querys) == 0 {
 		return nil, errors.New("n/d")
 	}
-	for _, v := range querys {
+	for i, v := range querys {
 		curQ, curArgs := prepareGetQueryAndArgs(v)
-		mainQ.What += ", (" + curQ + ")"
+		mainQ.What += ", (" + curQ + ") AS " + qAs[i]
 		mainQ.Args = append(mainQ.Args, curArgs...)
 	}
+	joinAs = append(joinAs, qAs...)
 
 	result, e := GetFrom(mainQ)
 	if len(result) == 0 || e != nil {
 		return nil, errors.New("n/d")
 	}
-	return MapFromStructAndMatrix(result, sampleStruct, as...), nil
+	return MapFromStructAndMatrix(result, sampleStruct, joinAs...), nil
 }
 
 // GetWithQueryAndArgs get with query and args
