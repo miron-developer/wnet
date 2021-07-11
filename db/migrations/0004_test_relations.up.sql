@@ -48,6 +48,15 @@ INSERT INTO Relations VALUES(
 INSERT INTO Relations VALUES(
     null,
     1,
+    3,
+    null,
+    null,
+    1
+);
+
+INSERT INTO Relations VALUES(
+    null,
+    1,
     1,
     null,
     null,
@@ -70,4 +79,22 @@ INSERT INTO Relations VALUES(
     null,
     null,
     4
+);
+
+INSERT INTO Relations VALUES(
+    null,
+    -1,
+    6,
+    null,
+    1,
+    null
+);
+
+INSERT INTO Relations VALUES(
+    null,
+    -1,
+    6,
+    null,
+    null,
+    1
 );

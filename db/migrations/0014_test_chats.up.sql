@@ -1,7 +1,7 @@
 INSERT INTO Chats VALUES(
     null,
     "user",
-    "|1 |2 ",
+    "|1 |2 |6 ",
     "",
     1,
     2,

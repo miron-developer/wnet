@@ -1,1 +1,1 @@
-DELETE FROM Notifications WHERE id < 13;
+DELETE FROM Notifications WHERE id < 15;

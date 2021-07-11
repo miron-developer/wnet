@@ -52,7 +52,7 @@ func (app *Application) CreatePost(w http.ResponseWriter, r *http.Request) (inte
 
 	title, body := r.PostFormValue("title"), r.PostFormValue("body")
 	postType, whichPost := r.PostFormValue("postType"), r.PostFormValue("which")
-	allowedUsers := r.PostFormValue("choosenFollowers")
+	allowedUsers, isHaveClippedFiles := r.PostFormValue("choosenFollowers"), r.PostFormValue("isHaveClippedFiles")
 
 	// XCSS
 	if checkAllXSS(title, body, postType, allowedUsers) != nil {
@@ -73,7 +73,7 @@ func (app *Application) CreatePost(w http.ResponseWriter, r *http.Request) (inte
 	for _, id := range ids {
 		p := &orm.Post{
 			Title: title, Body: body, PostType: postType, Type: "post",
-			UnixDate: int(time.Now().Unix() * 1000), AllowedUsers: allowedUsers,
+			UnixDate: int(time.Now().Unix() * 1000), AllowedUsers: allowedUsers, IsHaveClippedFiles: isHaveClippedFiles,
 		}
 		if whichPost == "group" {
 			p.GroupID = id
@@ -85,6 +85,25 @@ func (app *Application) CreatePost(w http.ResponseWriter, r *http.Request) (inte
 		if e != nil {
 			return nil, errors.New("not create post")
 		}
+
+		// create notification
+		go func() {
+			n := orm.Notification{
+				UnixDate: p.UnixDate, NotificationType: "1",
+				SenderUserID: userID, PostID: postID,
+			}
+
+			if nid, e := n.Create(); e == nil {
+				app.findUserByID(userID).Write(app, &WSMessage{
+					MsgType:    WSM_ADD_USER_NOTIFICATION_TYPE,
+					ReceiverID: "-2",
+					Body: struct {
+						ID    int    `json:"id"`
+						NType string `json:"type"`
+					}{ID: nid, NType: n.NotificationType},
+				})
+			}
+		}()
 		datas = append(datas, postID)
 	}
 	return datas, nil
@@ -123,21 +142,61 @@ func (app *Application) CreateGroup(w http.ResponseWriter, r *http.Request) (int
 		SenderUserID:    userID,
 		ReceiverGroupID: id,
 	}
-	if e := rl.Create(); e != nil {
+	if _, e := rl.Create(); e != nil {
 		orm.DeleteByParams(orm.SQLDeleteParams{Table: "Groups", Options: orm.DoSQLOption("id=?", "", "", id)})
 		return -1, errors.New("not create group: no relation between user & group")
 	}
 
+	// create notification
+	go func() {
+		n := orm.Notification{
+			UnixDate: int(time.Now().Unix() * 1000), NotificationType: "3",
+			SenderUserID: userID, GroupID: id,
+		}
+		if nid, e := n.Create(); e == nil {
+			app.findUserByID(userID).Write(app, &WSMessage{
+				MsgType:    WSM_ADD_USER_NOTIFICATION_TYPE,
+				ReceiverID: "-2",
+				Body: struct {
+					ID    int    `json:"id"`
+					NType string `json:"type"`
+				}{ID: nid, NType: n.NotificationType},
+			})
+		}
+	}()
+
 	if inviteUsers != "" {
 		for _, inviterStringID := range strings.Split(inviteUsers, ",") {
-			if inviterID, e := strconv.Atoi(inviterStringID); e != nil {
-				rlsh := &orm.Relation{
-					Value:          "1",
-					SenderGroupID:  id,
-					ReceiverUserID: inviterID,
-				}
-				rlsh.Create()
+			inviterID, e := strconv.Atoi(inviterStringID)
+			if e != nil {
+				continue
 			}
+
+			rlsh := &orm.Relation{
+				Value:          "-1",
+				SenderGroupID:  id,
+				ReceiverUserID: inviterID,
+			}
+			rlsh.Create()
+
+			// create notification
+			go func() {
+				n := orm.Notification{
+					UnixDate: int(time.Now().Unix() * 1000), NotificationType: "4",
+					SenderUserID: userID, ReceiverUserID: inviterID, GroupID: id,
+				}
+
+				if nid, e := n.Create(); e == nil {
+					app.findUserByID(userID).Write(app, &WSMessage{
+						MsgType:    WSM_ADD_USER_NOTIFICATION_TYPE,
+						ReceiverID: strconv.Itoa(inviterID),
+						Body: struct {
+							ID    int    `json:"id"`
+							NType string `json:"type"`
+						}{ID: nid, NType: n.NotificationType},
+					})
+				}
+			}()
 		}
 	}
 
@@ -175,6 +234,24 @@ func (app *Application) CreateEvent(w http.ResponseWriter, r *http.Request) (int
 		if e != nil {
 			return nil, errors.New("not create event")
 		}
+
+		// create notification
+		go func() {
+			n := orm.Notification{
+				UnixDate: evnt.UnixDate, NotificationType: "2",
+				SenderUserID: userID, EventID: eventID,
+			}
+			if nid, e := n.Create(); e == nil {
+				app.findUserByID(userID).Write(app, &WSMessage{
+					MsgType:    WSM_ADD_USER_NOTIFICATION_TYPE,
+					ReceiverID: "-2",
+					Body: struct {
+						ID    int    `json:"id"`
+						NType string `json:"type"`
+					}{ID: nid, NType: n.NotificationType},
+				})
+			}
+		}()
 		ids = append(ids, eventID)
 	}
 
@@ -277,49 +354,92 @@ func (app *Application) CreateFile(w http.ResponseWriter, r *http.Request) (inte
 
 func (app *Application) CreateLike(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	userID := getUserIDfromReq(w, r)
+	errRes := map[string]interface{}{"carma": 0, "isLiked": false}
 	if userID == -1 {
-		return map[string]interface{}{"carma": 0, "isLiked": false}, errors.New("not logged")
+		return errRes, errors.New("not logged")
 	}
 
 	ID, e := strconv.Atoi(r.PostFormValue("id"))
 	if e != nil {
-		return map[string]interface{}{"carma": 0, "isLiked": false}, errors.New("wrong id")
+		return errRes, errors.New("wrong id")
 	}
 
-	like := &orm.Like{UserID: userID}
+	l := &orm.Like{UserID: userID, MediaID: ID}
+	n := orm.Notification{
+		UnixDate: int(time.Now().Unix() * 1000), NotificationType: "12",
+		SenderUserID: userID, MediaID: ID,
+	}
+
 	typeLike := r.PostFormValue("type")
+	noteTable := "Media"
 	if typeLike == "post" {
-		like.PostID = ID
+		l.MediaID = 0
+		l.PostID = ID
+		n.MediaID = 0
+		n.PostID = ID
+		n.NotificationType = "10"
+		noteTable = "Posts"
 	} else if typeLike == "comment" {
-		like.CommentID = ID
-	} else {
-		like.MediaID = ID
+		l.MediaID = 0
+		l.CommentID = ID
+		n.MediaID = 0
+		n.CommentID = ID
+		n.NotificationType = "11"
+		noteTable = "Comments"
 	}
 
-	setted, e := like.Set()
+	setted, e := l.Set()
 	if e != nil {
-		return map[string]interface{}{"carma": 0, "isLiked": false}, errors.New("not setted")
+		return errRes, errors.New("not setted")
 	}
+	if typeLike == "video" {
+		n.NotificationType = "13"
+	}
+	if typeLike == "photo" || typeLike == "video" {
+		typeLike = "media"
+	}
+
+	// create notification
+	go func() {
+		if data, e := orm.GetOneFrom(orm.SQLSelectParams{
+			Table:   noteTable,
+			What:    "userID",
+			Options: orm.DoSQLOption("id=?", "", "", ID),
+		}); e == nil && data != nil {
+			n.ReceiverUserID = orm.FromINT64ToINT(data[0])
+
+			if nid, e := n.Create(); e == nil {
+				app.findUserByID(userID).Write(app, &WSMessage{
+					MsgType:    WSM_ADD_USER_NOTIFICATION_TYPE,
+					ReceiverID: strconv.Itoa(n.ReceiverUserID),
+					Body: struct {
+						ID    int    `json:"id"`
+						NType string `json:"type"`
+					}{ID: nid, NType: n.NotificationType},
+				})
+			}
+		}
+	}()
 
 	carmaAny, e := orm.GetOneFrom(carmaCountQ(typeLike+"ID", ID))
 	if e != nil || carmaAny[0] == nil {
-		return map[string]interface{}{"carma": 0, "isLiked": false}, e
+		return errRes, e
 	}
 	return map[string]interface{}{"carma": carmaAny[0], "isLiked": setted}, nil
 }
 
 func (app *Application) CreateRelation(w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	userID := getUserIDfromReq(w, r)
-	if userID == -1 {
+	senderID, e := getUserID(w, r, r.PostFormValue("senderID"))
+	if senderID == -1 || e != nil {
 		return nil, errors.New("not logged")
 	}
 
-	ID, e := strconv.Atoi(r.PostFormValue("id"))
+	ID, e := strconv.Atoi(r.PostFormValue("receiverID"))
 	if e != nil {
 		return nil, errors.New("wrong id")
 	}
 
-	rlsh := &orm.Relation{SenderUserID: userID, ReceiverGroupID: ID}
+	rlsh := &orm.Relation{SenderUserID: senderID, ReceiverGroupID: ID}
 	cond := "GroupID"
 	if r.PostFormValue("isUser") == "true" {
 		rlsh.ReceiverGroupID = 0
@@ -332,7 +452,7 @@ func (app *Application) CreateRelation(w http.ResponseWriter, r *http.Request) (
 		return nil, errors.New("wrong relation")
 	}
 
-	op := 1 // 1 - create; -1 remove; 0 change
+	op := 1 // 1 - create; -1 - remove; 0 - change
 	if typeRlsh == 0 {
 		rlsh.Value = "1"
 	} else if typeRlsh == 1 {
@@ -349,7 +469,42 @@ func (app *Application) CreateRelation(w http.ResponseWriter, r *http.Request) (
 	}
 
 	if op == 1 {
-		return nil, rlsh.Create()
+		id, e := rlsh.Create()
+
+		// create notification
+		go func() {
+			if rlsh.Value == "-1" {
+				n := orm.Notification{
+					UnixDate: int(time.Now().Unix() * 1000), NotificationType: "5",
+					SenderUserID: senderID, ReceiverUserID: rlsh.ReceiverUserID, RelationID: id,
+				}
+				if cond == "GroupID" {
+					n.NotificationType = "6"
+					n.GroupID = rlsh.ReceiverGroupID
+					data, e := orm.GetOneFrom(orm.SQLSelectParams{
+						Table:   "Groups",
+						What:    "ownerUserID",
+						Options: orm.DoSQLOption("id=?", "", "", rlsh.ReceiverGroupID),
+					})
+					if e != nil || data == nil {
+						return
+					}
+					n.ReceiverUserID = orm.FromINT64ToINT(data[0])
+				}
+
+				if nid, e := n.Create(); e == nil {
+					app.findUserByID(senderID).Write(app, &WSMessage{
+						MsgType:    WSM_ADD_USER_NOTIFICATION_TYPE,
+						ReceiverID: strconv.Itoa(n.ReceiverUserID),
+						Body: struct {
+							ID    int    `json:"id"`
+							NType string `json:"type"`
+						}{ID: nid, NType: n.NotificationType},
+					})
+				}
+			}
+		}()
+		return id, e
 	} else if op == -1 {
 		return nil, orm.DeleteByParams(orm.SQLDeleteParams{
 			Table: "Relations",
@@ -357,7 +512,7 @@ func (app *Application) CreateRelation(w http.ResponseWriter, r *http.Request) (
 				"(senderUserID = ? AND receiver"+cond+"=?) OR (receiverUserID=? AND sender"+cond+"=?)",
 				"",
 				"",
-				userID, ID, userID, ID,
+				senderID, ID, senderID, ID,
 			),
 		})
 	}
@@ -369,7 +524,7 @@ func (app *Application) CreateRelation(w http.ResponseWriter, r *http.Request) (
 			"(senderUserID = ? AND receiver"+cond+"=?) OR (receiverUserID=? AND sender"+cond+"=?)",
 			"",
 			"",
-			userID, ID, userID, ID,
+			senderID, ID, senderID, ID,
 		),
 	})
 	if e != nil || id[0] == nil {
@@ -462,6 +617,8 @@ func (app *Application) CreateMessage(w http.ResponseWriter, r *http.Request) (i
 	typeChat := r.PostFormValue("type")
 	if typeChat == "group" {
 		c.ChatType = "group"
+		c.ReceiverUserID = 0
+		c.ReceiverGroupID = ID
 		m.ReceiverUserID = 0
 		m.ReceiverGroupID = ID
 	}
@@ -474,7 +631,6 @@ func (app *Application) CreateMessage(w http.ResponseWriter, r *http.Request) (i
 	if e != nil {
 		return -1, errors.New("not created message")
 	}
-
 	return []int{id}, nil
 }
 
@@ -490,10 +646,6 @@ func (app *Application) CreateComment(w http.ResponseWriter, r *http.Request) (i
 
 	commentType, body := r.PostFormValue("type"), r.PostFormValue("body")
 	isAnswer, isHaveClippedFiles := r.PostFormValue("isAnswer"), r.PostFormValue("isHaveClippedFiles")
-
-	if commentType != "post" && commentType != "comment" && commentType != "media" {
-		return nil, errors.New("wrong comment type")
-	}
 	if checkAllXSS(body, isHaveClippedFiles, isAnswer) != nil {
 		return nil, errors.New("wrong content")
 	}
@@ -503,9 +655,17 @@ func (app *Application) CreateComment(w http.ResponseWriter, r *http.Request) (i
 		IsHaveChild: "0", IsAnswer: isAnswer, IsHaveClippedFiles: isHaveClippedFiles,
 		UserID: userID, PostID: ID,
 	}
+	n := orm.Notification{
+		UnixDate: int(time.Now().Unix() * 1000), NotificationType: "20",
+		SenderUserID: userID, PostID: ID,
+	}
+	noteTable := "Posts"
 	if commentType == "comment" {
 		c.PostID = 0
 		c.CommentID = ID
+		n.PostID = 0
+		n.CommentID = ID
+		n.NotificationType = "21"
 
 		if r.PostFormValue("isHaveChild") == "0" {
 			parentComment := orm.Comment{ID: ID, IsHaveChild: "1"}
@@ -513,10 +673,38 @@ func (app *Application) CreateComment(w http.ResponseWriter, r *http.Request) (i
 				return -1, errors.New("not created comment, parent not changed")
 			}
 		}
-	} else if commentType == "media" {
+	} else if commentType == "media" || commentType == "video" || commentType == "photo" {
 		c.PostID = 0
 		c.MediaID = ID
+		n.PostID = 0
+		n.MediaID = ID
+		n.NotificationType = "22"
 	}
+
+	// create notification
+	go func() {
+		if commentType == "video" {
+			n.NotificationType = "23"
+		}
+		if data, e := orm.GetOneFrom(orm.SQLSelectParams{
+			Table:   noteTable,
+			What:    "userID",
+			Options: orm.DoSQLOption("id=?", "", "", ID),
+		}); e == nil && data != nil {
+			n.ReceiverUserID = orm.FromINT64ToINT(data[0])
+
+			if nid, e := n.Create(); e == nil {
+				app.findUserByID(userID).Write(app, &WSMessage{
+					MsgType:    WSM_ADD_USER_NOTIFICATION_TYPE,
+					ReceiverID: strconv.Itoa(n.ReceiverUserID),
+					Body: struct {
+						ID    int    `json:"id"`
+						NType string `json:"type"`
+					}{ID: nid, NType: n.NotificationType},
+				})
+			}
+		}
+	}()
 
 	id, e := c.Create()
 	if e != nil {

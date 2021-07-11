@@ -195,6 +195,8 @@ CREATE TABLE IF NOT EXISTS Comments (
  *  (type = 2)  Invite to event
  *  (type = 3)  Create group
  *  (type = 4)  Invite to be member in the group
+ *  (type = 5)  Request to follow to user
+ *  (type = 6)  Request to follow to group
  *  (type = 10) Liked post
  *  (type = 11) Liked comment
  *  (type = 12) Liked photo
@@ -211,6 +213,7 @@ CREATE TABLE IF NOT EXISTS Notifications (
     type INTEGER,
     senderUserID INTEGER,
     receiverUserID INTEGER, -- if to all followers = null
+    relationID INTEGER,
     postID INTEGER,
     commentID INTEGER,
     eventID INTEGER,
@@ -218,13 +221,14 @@ CREATE TABLE IF NOT EXISTS Notifications (
     mediaID INTEGER,
     FOREIGN KEY (senderUserID) REFERENCES Users(id) ON DELETE CASCADE,
 	FOREIGN KEY (receiverUserID) REFERENCES Users(id) ON DELETE CASCADE,
+    FOREIGN KEY (relationID) REFERENCES Relations(id) ON DELETE CASCADE,
     FOREIGN KEY (postID) REFERENCES Posts(id) ON DELETE CASCADE,
 	FOREIGN KEY (commentID) REFERENCES Comments(id) ON DELETE CASCADE,
     FOREIGN KEY (eventID) REFERENCES Events(id) ON DELETE CASCADE,
     FOREIGN KEY (groupID) REFERENCES Groups(id) ON DELETE CASCADE,
 	FOREIGN KEY (mediaID) REFERENCES Media(id) ON DELETE CASCADE,
     CHECK(
-        type IN(1, 2, 3, 4, 10, 11, 12, 13, 20, 21, 22, 23)
+        type IN(1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 20, 21, 22, 23)
     )
 );
 

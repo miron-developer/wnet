@@ -67,8 +67,11 @@ func (app *Application) findUserByID(finder int) *WSUser {
 func (app *Application) WSWork() {
 	for {
 		msg := <-app.WSMessages
-		if msg.ReceiverID == "all" {
+		if msg.ReceiverID == "all" || msg.ReceiverID == "-2" {
 			for _, v := range app.OnlineUsers {
+				if strconv.Itoa(v.ID) == msg.AddresserID {
+					continue
+				}
 				go v.Conn.WriteJSON(msg)
 			}
 		} else {
@@ -134,4 +137,10 @@ func (user *WSUser) Pinger() {
 			return
 		}
 	}
+}
+
+// Pinger ping every pingPeriod
+func (user *WSUser) Write(app *Application, msg *WSMessage) {
+	msg.AddresserID = strconv.Itoa(user.ID)
+	app.WSMessages <- msg
 }

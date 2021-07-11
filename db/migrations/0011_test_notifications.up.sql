@@ -5,6 +5,7 @@ INSERT INTO Notifications VALUES(
     1,
     2,
     null,
+    null,
     4,
     null,
     null,
@@ -18,6 +19,7 @@ INSERT INTO Notifications VALUES(
     1588670115000,
     2,
     2,
+    null,
     null,
     null,
     null,
@@ -36,6 +38,7 @@ INSERT INTO Notifications VALUES(
     null,
     null,
     null,
+    null,
     3,
     null
 );
@@ -50,7 +53,38 @@ INSERT INTO Notifications VALUES(
     null,
     null,
     null,
+    null,
     3,
+    null
+);
+
+-- req follow to user
+INSERT INTO Notifications VALUES(
+    null,
+    1588670115000,
+    5,
+    6,
+    1,
+    9,
+    null,
+    null,
+    null,
+    null,
+    null
+);
+
+-- req follow to group
+INSERT INTO Notifications VALUES(
+    null,
+    1588670115000,
+    6,
+    6,
+    1,
+    10,
+    null,
+    null,
+    null,
+    1,
     null
 );
 
@@ -60,6 +94,7 @@ INSERT INTO Notifications VALUES(
     1588670115000,
     10,
     2,
+    null,
     null,
     1,
     null,
@@ -74,6 +109,7 @@ INSERT INTO Notifications VALUES(
     1588670115000,
     11,
     2,
+    null,
     null,
     null,
     1,
@@ -93,6 +129,7 @@ INSERT INTO Notifications VALUES(
     null,
     null,
     null,
+    null,
     1
 );
 
@@ -102,6 +139,7 @@ INSERT INTO Notifications VALUES(
     1588670115000,
     13,
     2,
+    null,
     null,
     null,
     null,
@@ -117,6 +155,7 @@ INSERT INTO Notifications VALUES(
     20,
     2,
     1,
+    null,
     1,
     null,
     null,
@@ -124,13 +163,14 @@ INSERT INTO Notifications VALUES(
     null
 );
 
--- following comment post
+-- following comment comment
 INSERT INTO Notifications VALUES(
     null,
     1588670115000,
     21,
     2,
     1,
+    null,
     null,
     1,
     null,
@@ -149,6 +189,7 @@ INSERT INTO Notifications VALUES(
     null,
     null,
     null,
+    null,
     1
 );
 
@@ -159,6 +200,7 @@ INSERT INTO Notifications VALUES(
     23,
     2,
     1,
+    null,
     null,
     null,
     null,

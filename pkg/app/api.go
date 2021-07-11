@@ -25,8 +25,9 @@ const (
 	FOLLOWERS_USER_GROUP_Q string = "SELECT receiverGroupID FROM Relations WHERE senderUserID = ? AND value = 1"
 	FOLLOWERS_GROUP_ONE_Q  string = "SELECT senderUserID FROM Relations WHERE receiverGroupID = ? AND (value = 1 OR value = 0)"
 	FOLLOWERS_GROUP_BOTH_Q string = "SELECT receiverUserID FROM Relations WHERE senderGroupID = ? AND value = 0"
-	REQUEST_USER_Q         string = "SELECT senderUserID FROM Relations WHERE receiverUserID = ? AND value=-1"
-	REQUEST_GROUP_Q        string = "SELECT senderGroupID FROM Relations WHERE receiverUserID = ? AND value=-1"
+	REQUEST_USER_USER_Q    string = "SELECT senderUserID FROM Relations WHERE receiverUserID = ? AND value=-1"
+	REQUEST_USER_GROUP_Q   string = "SELECT senderGroupID FROM Relations WHERE receiverUserID = ? AND value=-1"
+	REQUEST_GROUP_USER_Q   string = "SELECT senderUserID FROM Relations WHERE receiverGroupID = ? AND value=-1"
 )
 
 // do json and write it
@@ -326,7 +327,11 @@ func (app *Application) Users(w http.ResponseWriter, r *http.Request) (interface
 		} else if flwType == "online" {
 			op.Where = "(id IN(" + FOLLOWERS_USER_ONE_Q + ") OR id IN(" + FOLLOWERS_USER_BOTH_Q + ")) AND status='online'"
 		} else {
-			op.Where = "id IN(" + REQUEST_USER_Q + ")"
+			if flwType == "request_g" {
+				op.Where = "id IN(" + REQUEST_GROUP_USER_Q + ")"
+			} else {
+				op.Where = "id IN(" + REQUEST_USER_USER_Q + ")"
+			}
 			op.Args = op.Args[1:]
 		}
 	} else if usersType == "following" {
@@ -364,7 +369,7 @@ func (app *Application) Groups(w http.ResponseWriter, r *http.Request) (interfac
 	if groupType == "all" {
 		op.Where = "id IN(" + FOLLOWERS_USER_GROUP_Q + ")"
 	} else {
-		op.Where = "id IN(" + REQUEST_GROUP_Q + ")"
+		op.Where = "id IN(" + REQUEST_USER_GROUP_Q + ")"
 	}
 
 	return generalGet(
@@ -498,7 +503,6 @@ func (app *Application) Chats(w http.ResponseWriter, r *http.Request) (interface
 	}
 
 	first, count := getLimit(r)
-
 	messageSelectOp := orm.DoSQLOption(
 		`(c.senderUserID = m.senderUserID AND c.receiverUserID = m.receiverUserID) OR
 		(c.senderUserID = m.receiverUserID AND c.receiverUserID = m.senderUserID) OR
@@ -535,7 +539,7 @@ func (app *Application) Chats(w http.ResponseWriter, r *http.Request) (interface
 	return orm.GetWithSubqueries(
 		mainQ,
 		[]orm.SQLSelectParams{messageBodyQ, messageDatetimeQ},
-		[]string{"userAvatar", "nickname", "status", "groupAvatar", "groupTitle", "msgBody", "msgDatetime"},
+		[]string{"userAvatar", "nickname", "status", "groupAvatar", "groupTitle"},
 		[]string{"msgBody", "msgDatetime"},
 		orm.Chat{},
 	)
@@ -581,13 +585,16 @@ func (app *Application) Notification(w http.ResponseWriter, r *http.Request) (in
 	}
 
 	selectType := func(noteType int) (string, string, string) {
+		if noteType == 5 {
+			return "", "", ""
+		}
 		if noteType == 1 || noteType == 10 || noteType == 20 {
 			return "Posts", "title", "postID"
 		}
 		if noteType == 2 {
 			return "Events", "title", "eventID"
 		}
-		if noteType == 3 || noteType == 4 {
+		if noteType == 3 || noteType == 4 || noteType == 6 {
 			return "Groups", "title", "groupID"
 		}
 		if noteType == 11 || noteType == 21 {
@@ -597,15 +604,20 @@ func (app *Application) Notification(w http.ResponseWriter, r *http.Request) (in
 	}
 	getType, whatData, whatID := selectType(noteType)
 
-	selectGetTypeQ := orm.SQLSelectParams{
-		Table:   getType,
-		What:    whatData,
-		Options: orm.DoSQLOption("id = n."+whatID, "", ""),
-	}
-	userQ := orm.SQLSelectParams{
+	querys := []orm.SQLSelectParams{{
 		Table:   "Users",
 		What:    "nName",
 		Options: orm.DoSQLOption("id = n.senderUserID", "", ""),
+	}}
+	qAs := []string{"nickname"}
+
+	if noteType != 5 {
+		querys = append(querys, orm.SQLSelectParams{
+			Table:   getType,
+			What:    whatData,
+			Options: orm.DoSQLOption("id = n."+whatID, "", ""),
+		})
+		qAs = append(qAs, "whatData")
 	}
 
 	mainQ := orm.SQLSelectParams{
@@ -614,7 +626,7 @@ func (app *Application) Notification(w http.ResponseWriter, r *http.Request) (in
 		Options: orm.DoSQLOption("n.id=?", "", "", ID),
 	}
 
-	return orm.GetWithSubqueries(mainQ, []orm.SQLSelectParams{selectGetTypeQ, userQ}, []string{}, []string{"whatData", "nickname"}, orm.Notification{})
+	return orm.GetWithSubqueries(mainQ, querys, []string{}, qAs, orm.Notification{})
 }
 
 func (app *Application) User(w http.ResponseWriter, r *http.Request) (interface{}, error) {
@@ -714,6 +726,16 @@ func (app *Application) Group(w http.ResponseWriter, r *http.Request) (interface
 			ID, ID,
 		),
 	}
+	requestQ := orm.SQLSelectParams{
+		Table: "Users",
+		What:  "COUNT(id)",
+		Options: orm.DoSQLOption(
+			"id IN ("+REQUEST_GROUP_USER_Q+")",
+			"",
+			"",
+			ID, ID,
+		),
+	}
 	eventsQ := orm.SQLSelectParams{
 		Table:   "Events",
 		What:    "COUNT(id)",
@@ -724,8 +746,8 @@ func (app *Application) Group(w http.ResponseWriter, r *http.Request) (interface
 		What:    "COUNT(id)",
 		Options: orm.DoSQLOption("groupID=?", "", "", ID),
 	}
-	querys := []orm.SQLSelectParams{membersQ, eventsQ, mediaQ}
-	as := []string{"membersCount", "eventsCount", "galleryCount"}
+	querys := []orm.SQLSelectParams{membersQ, eventsQ, mediaQ, requestQ}
+	as := []string{"membersCount", "eventsCount", "galleryCount", "requestsCount"}
 
 	if r.FormValue("type") == "profile" {
 		userID := getUserIDfromReq(w, r)

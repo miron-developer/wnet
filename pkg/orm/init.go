@@ -37,7 +37,6 @@ func execMigrations(eLogger *log.Logger) error {
 	if e = m.Up(); e != nil && e != migrate.ErrNoChange {
 		return e
 	}
-
 	return nil
 }
 

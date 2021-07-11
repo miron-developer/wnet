@@ -61,7 +61,7 @@ INSERT INTO Users VALUES(
     "/img/default-avatar.png",
     1588670115000,
     "about user 4",
-    0,
+    1,
     "d@dot.com",
     "password4"
 );

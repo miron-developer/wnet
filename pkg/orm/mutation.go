@@ -231,9 +231,9 @@ func (ea *EventAnswer) Create() error {
 }
 
 // Create create one Relations
-func (r *Relation) Create() error {
+func (r *Relation) Create() (int, error) {
 	if r.Value == "" {
-		return errors.New("n/d")
+		return -1, errors.New("n/d")
 	}
 
 	params := SQLInsertParams{
@@ -243,8 +243,13 @@ func (r *Relation) Create() error {
 	}
 	params.Datas, params.Values = prepareDataAndValues(params.Datas, params.Values, []int{r.SenderUserID, r.SenderGroupID, r.ReceiverUserID, r.ReceiverGroupID})
 	params.Values = params.Values[1:]
-	_, e := insertSQL(params)
-	return e
+
+	res, e := insertSQL(params)
+	if e != nil {
+		return -1, e
+	}
+	ID, e := res.LastInsertId()
+	return int(ID), e
 }
 
 // Create create one Media(photo&video)
@@ -292,27 +297,33 @@ func (c *Comment) Create() (int, error) {
 }
 
 // Create create one notification
-//  if isForAll = true, this notification for all followers
-//  else receiverUserID = null
-func (n *Notification) Create(isForAll bool) (int, error) {
+func (n *Notification) Create() (int, error) {
 	if n.NotificationType == "" || n.UnixDate == 0 || n.SenderUserID == 0 {
 		return -1, errors.New("n/d")
 	}
 
 	params := SQLInsertParams{
 		Table:  "Notifications",
-		Datas:  "null,?,?,?,?,?,?,?,?,?",
+		Datas:  "null,?,?,?,?,?,?,?,?,?,?",
 		Values: MakeArrFromStruct(*n),
 	}
-	if isForAll {
-		params.Datas = "null,?,?,?,null,?,?,?,?,?"
+	if n.NotificationType == "6" {
+		params.Datas = "null,?,?,?,?,?,null,null,null,?,null"
+		params.Values = append(params.Values[1:6], n.GroupID)
+	} else {
+		if n.ReceiverUserID == 0 {
+			params.Datas = "null,?,?,?,null,?,?,?,?,?,?"
+		}
+		params.Datas, params.Values = prepareDataAndValues(
+			params.Datas,
+			params.Values,
+			[]int{n.RelationID, n.PostID, n.CommentID, n.EventID, n.GroupID, n.MediaID},
+		)
+		params.Values = params.Values[1:]
+		if n.ReceiverUserID == 0 {
+			params.Values = append(params.Values[:3], params.Values[4:]...)
+		}
 	}
-	params.Datas, params.Values = prepareDataAndValues(
-		params.Datas,
-		params.Values,
-		[]int{n.PostID, n.CommentID, n.EventID, n.GroupID, n.MediaID},
-	)
-	params.Values = params.Values[1:]
 
 	res, e := insertSQL(params)
 	if e != nil {

@@ -136,6 +136,7 @@ type Notification struct {
 	NotificationType string `json:"notificationType"`
 	SenderUserID     int    `json:"senderUserID"`
 	ReceiverUserID   int    `json:"receiverUserID"`
+	RelationID       int    `json:"relationID"`
 	PostID           int    `json:"postID"`
 	CommentID        int    `json:"commentID"`
 	EventID          int    `json:"eventID"`
